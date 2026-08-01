@@ -8,6 +8,7 @@ import com.app.privacyscreendisplay.home.domain.usecase.GetProtectionStatusUseCa
 import com.app.privacyscreendisplay.home.domain.usecase.ToggleProtectionUseCase
 import com.app.privacyscreendisplay.home.domain.usecase.UpdateOverlayStyleUseCase
 import com.app.privacyscreendisplay.home.domain.usecase.UpdateSensitivityUseCase
+import com.app.privacyscreendisplay.protectedapps.domain.usecase.GetProtectedAppsUseCase
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -24,6 +26,7 @@ import kotlinx.coroutines.launch
  */
 class HomeViewModel(
     private val getProtectionStatusUseCase: GetProtectionStatusUseCase,
+    private val getProtectedAppsUseCase: GetProtectedAppsUseCase,
     private val toggleProtectionUseCase: ToggleProtectionUseCase,
     private val updateOverlayStyleUseCase: UpdateOverlayStyleUseCase,
     private val updateSensitivityUseCase: UpdateSensitivityUseCase
@@ -54,7 +57,12 @@ class HomeViewModel(
 
     private fun observeProtectionStatus() {
         viewModelScope.launch {
-            getProtectionStatusUseCase().collectLatest { status ->
+            combine(
+                getProtectionStatusUseCase(),
+                getProtectedAppsUseCase()
+            ) { status, apps ->
+                status.copy(protectedAppsCount = apps.size)
+            }.collectLatest { status ->
                 _uiState.update { currentState ->
                     currentState.copy(
                         isLoading = false,

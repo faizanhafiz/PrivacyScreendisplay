@@ -44,6 +44,8 @@ fun AdBannerCard(
     adDescription: String = "Keep your device safe with AI-powered privacy protection.",
     onAdClick: () -> Unit = {}
 ) {
+    if (com.app.privacyscreendisplay.core.ads.AdConfig.isPremiumUser) return
+
     if (useLiveNativeAd) {
         // Renders real Google AdMob + Meta Mediation Native Ad using official test unit ID
         AdMobNativeAdView(modifier = modifier)

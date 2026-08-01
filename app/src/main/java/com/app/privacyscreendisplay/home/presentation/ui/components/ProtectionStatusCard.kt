@@ -54,7 +54,6 @@ import androidx.compose.material3.HorizontalDivider
 fun ProtectionStatusCard(
     status: ProtectionStatus,
     onToggleProtection: () -> Unit,
-    onTestOverlayClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val isActive = status.isProtectionActive
@@ -93,103 +92,60 @@ fun ProtectionStatusCard(
                 .background(Brush.horizontalGradient(gradientColors))
                 .padding(20.dp)
         ) {
-            Column {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Pulsing Camera Shield Badge
+                Box(
+                    modifier = Modifier
+                        .scale(pulseScale)
+                        .size(52.dp)
+                        .clip(CircleShape)
+                        .background(statusBadgeBg),
+                    contentAlignment = Alignment.Center
                 ) {
-                    // Pulsing Camera Shield Badge
-                    Box(
-                        modifier = Modifier
-                            .scale(pulseScale)
-                            .size(52.dp)
-                            .clip(CircleShape)
-                            .background(statusBadgeBg),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = if (isActive) Icons.Rounded.Shield else Icons.Rounded.ShieldMoon,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(14.dp))
-
-                    Column(
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(
-                            text = if (isActive) "PRIVACY GUARD ACTIVE" else "PROTECTION PAUSED",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color.White,
-                            letterSpacing = 0.5.sp
-                        )
-
-                        Spacer(modifier = Modifier.height(2.dp))
-
-                        Text(
-                            text = if (isActive) "Scanning front camera for extra faces" else "Tap switch to enable real-time overlay",
-                            fontSize = 12.sp,
-                            color = Color.White.copy(alpha = 0.85f),
-                            lineHeight = 16.sp
-                        )
-                    }
-
-                    // Master Toggle Switch
-                    Switch(
-                        checked = isActive,
-                        onCheckedChange = { onToggleProtection() },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color(0xFF10B981),
-                            checkedTrackColor = Color.White,
-                            uncheckedThumbColor = Color(0xFF9CA3AF),
-                            uncheckedTrackColor = Color(0xFF1F2937)
-                        )
+                    Icon(
+                        imageVector = if (isActive) Icons.Rounded.Shield else Icons.Rounded.ShieldMoon,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
                     )
                 }
 
-                if (isActive && onTestOverlayClick != null) {
-                    Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.width(14.dp))
 
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.25f), thickness = 1.dp)
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = if (isActive) "PRIVACY GUARD ACTIVE" else "PROTECTION PAUSED",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.White,
+                        letterSpacing = 0.5.sp
+                    )
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color.White.copy(alpha = 0.18f))
-                            .clickable { onTestOverlayClick() }
-                            .padding(horizontal = 14.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Rounded.Visibility,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Simulate Shoulder Surfer Detection",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        }
-                        Text(
-                            text = "Test ➔",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color.White
-                        )
-                    }
+                    Text(
+                        text = if (isActive) "Scanning front camera for extra faces" else "Tap switch to enable real-time overlay",
+                        fontSize = 12.sp,
+                        color = Color.White.copy(alpha = 0.85f),
+                        lineHeight = 16.sp
+                    )
                 }
+
+                // Master Toggle Switch
+                Switch(
+                    checked = isActive,
+                    onCheckedChange = { onToggleProtection() },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color(0xFF10B981),
+                        checkedTrackColor = Color.White,
+                        uncheckedThumbColor = Color(0xFF9CA3AF),
+                        uncheckedTrackColor = Color(0xFF1F2937)
+                    )
+                )
             }
         }
     }

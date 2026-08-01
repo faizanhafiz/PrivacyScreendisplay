@@ -125,11 +125,18 @@ fun HomeScreenContent(
     var showBottomSheetAd by remember { mutableStateOf(false) }
     var showProtectionOverlay by remember { mutableStateOf(false) }
 
-    // Trigger Bottom Sheet Modal Dialog Ad ONLY on initial app launch
+    // Sync global AdConfig premium flag
+    LaunchedEffect(status.isPremiumSubscriber) {
+        com.app.privacyscreendisplay.core.ads.AdConfig.isPremiumUser = status.isPremiumSubscriber
+    }
+
+    // Trigger Bottom Sheet Modal Dialog Ad ONLY on initial app launch if NOT premium
     LaunchedEffect(Unit) {
-        if (shouldShowLaunchAd()) {
-            kotlinx.coroutines.delay(1200L)
-            showBottomSheetAd = true
+        if (!status.isPremiumSubscriber && shouldShowLaunchAd()) {
+            kotlinx.coroutines.delay(5000L) // 5-second delay to prevent overlap with App Open Ad
+            if (!status.isPremiumSubscriber) {
+                showBottomSheetAd = true
+            }
         }
     }
 
@@ -214,8 +221,7 @@ fun HomeScreenContent(
             // 1. Hero Protection Banner Switch Card
                 ProtectionStatusCard(
                     status = status,
-                    onToggleProtection = onToggleProtection,
-                    onTestOverlayClick = { showProtectionOverlay = true }
+                    onToggleProtection = onToggleProtection
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -287,12 +293,14 @@ fun HomeScreenContent(
             }
         }
 
-        // Bottom Sheet Interstitial Native Dialog Ad Overlay
-        AdMobBottomSheetAdDialog(
-            isVisible = showBottomSheetAd,
-            onDismiss = { showBottomSheetAd = false },
-            onAdClick = onPremiumClick
-        )
+        // Bottom Sheet Interstitial Native Dialog Ad Overlay (Suppressed for Premium Users)
+        if (!status.isPremiumSubscriber) {
+            AdMobBottomSheetAdDialog(
+                isVisible = showBottomSheetAd,
+                onDismiss = { showBottomSheetAd = false },
+                onAdClick = onPremiumClick
+            )
+        }
 
         // Full Screen Privacy Protection Overlay (Triggered on shoulder surfing detection)
         FullProtectionOverlay(

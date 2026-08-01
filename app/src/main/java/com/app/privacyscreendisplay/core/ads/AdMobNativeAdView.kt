@@ -47,6 +47,8 @@ fun AdMobNativeAdView(
     autoRefreshIntervalSeconds: Long = 45L,
     onAdLoaded: () -> Unit = {}
 ) {
+    if (AdConfig.isPremiumUser) return
+
     var nativeAdState by remember { mutableStateOf<NativeAd?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var adLoaderRef by remember { mutableStateOf<AdLoader?>(null) }

@@ -38,6 +38,7 @@ android {
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.service)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.process)
     implementation(libs.androidx.activity.compose)
@@ -53,6 +54,12 @@ dependencies {
     // AdMob & Meta Mediation SDKs
     implementation(libs.play.services.ads)
     implementation(libs.meta.admob.adapter)
+
+    // CameraX & ML Kit Face Detection
+    implementation(libs.camerax.core)
+    implementation(libs.camerax.camera2)
+    implementation(libs.camerax.lifecycle)
+    implementation(libs.mlkit.face.detection)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

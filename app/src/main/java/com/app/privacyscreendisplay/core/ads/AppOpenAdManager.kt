@@ -40,6 +40,11 @@ class AppOpenAdManager(
      * @param showOnLoad If true, guarantees ad presentation as soon as loading completes.
      */
     fun fetchAd(targetActivity: Activity? = null, showOnLoad: Boolean = false) {
+        if (AdConfig.isPremiumUser) {
+            Log.d(TAG, "User is Premium subscriber. App Open Ad suppressed.")
+            return
+        }
+
         if (targetActivity != null) {
             currentActivity = targetActivity
         }
@@ -109,6 +114,11 @@ class AppOpenAdManager(
      * Displays the App Open Ad if available, or queues it to display as soon as loading completes.
      */
     fun showAdIfAvailable(activity: Activity) {
+        if (AdConfig.isPremiumUser) {
+            Log.d(TAG, "User is Premium subscriber. App Open Ad suppressed.")
+            return
+        }
+
         currentActivity = activity
         isPendingShowOnLoad = true
 
@@ -159,6 +169,11 @@ class AppOpenAdManager(
 
     override fun onStart(owner: LifecycleOwner) {
         super.onStart(owner)
+        if (AdConfig.isPremiumUser) {
+            Log.d(TAG, "User is Premium subscriber. OnStart App Open Ad suppressed.")
+            return
+        }
+
         Log.d(TAG, "App transitioned to foreground. Presenting App Open Ad...")
         currentActivity?.let { activity ->
             showAdIfAvailable(activity)

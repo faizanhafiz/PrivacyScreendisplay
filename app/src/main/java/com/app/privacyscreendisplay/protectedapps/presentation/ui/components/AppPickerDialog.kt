@@ -20,13 +20,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Smartphone
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -35,6 +35,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,7 +44,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -51,6 +51,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.app.privacyscreendisplay.protectedapps.domain.model.ProtectedApp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private data class InstalledAppItem(
     val packageName: String,
@@ -59,7 +61,8 @@ private data class InstalledAppItem(
 )
 
 /**
- * Interactive App Selection Dialog querying actual installed applications from Android system PackageManager.
+ * Interactive App Selection Dialog querying installed applications from Android system PackageManager
+ * asynchronously on Dispatchers.IO with clean loading progress indicator.
  */
 @Composable
 fun AppPickerDialog(
@@ -72,33 +75,41 @@ fun AppPickerDialog(
 
     val context = LocalContext.current
     var searchQuery by remember { mutableStateOf("") }
+    var installedApps by remember { mutableStateOf<List<InstalledAppItem>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
 
-    // Retrieve system installed applications from Android PackageManager
-    val installedApps = remember(context) {
-        val pm = context.packageManager
-        val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
-            addCategory(Intent.CATEGORY_LAUNCHER)
-        }
-
-        val resolveInfos = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            pm.queryIntentActivities(mainIntent, PackageManager.ResolveInfoFlags.of(0L))
-        } else {
-            pm.queryIntentActivities(mainIntent, 0)
-        }
-
-        resolveInfos.mapNotNull { resolveInfo ->
-            val pkgName = resolveInfo.activityInfo.packageName
-            val label = resolveInfo.loadLabel(pm).toString()
-            if (pkgName.isBlank() || label.isBlank() || pkgName == context.packageName) null
-            else {
-                val icon = try { resolveInfo.loadIcon(pm) } catch (e: Exception) { null }
-                InstalledAppItem(
-                    packageName = pkgName,
-                    appName = label,
-                    iconDrawable = icon
-                )
+    // Asynchronously query system installed applications on background thread
+    LaunchedEffect(Unit) {
+        isLoading = true
+        val apps = withContext(Dispatchers.IO) {
+            val pm = context.packageManager
+            val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
+                addCategory(Intent.CATEGORY_LAUNCHER)
             }
-        }.distinctBy { it.packageName }.sortedBy { it.appName }
+
+            val resolveInfos = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                pm.queryIntentActivities(mainIntent, PackageManager.ResolveInfoFlags.of(0L))
+            } else {
+                pm.queryIntentActivities(mainIntent, 0)
+            }
+
+            resolveInfos.mapNotNull { resolveInfo ->
+                val pkgName = resolveInfo.activityInfo.packageName
+                val label = resolveInfo.loadLabel(pm).toString()
+                if (pkgName.isBlank() || label.isBlank() || pkgName == context.packageName) null
+                else {
+                    val icon = try { resolveInfo.loadIcon(pm) } catch (e: Exception) { null }
+                    InstalledAppItem(
+                        packageName = pkgName,
+                        appName = label,
+                        iconDrawable = icon
+                    )
+                }
+            }.distinctBy { it.packageName }.sortedBy { it.appName }
+        }
+
+        installedApps = apps
+        isLoading = false
     }
 
     val filteredApps = remember(installedApps, alreadyAddedPackages, searchQuery) {
@@ -166,7 +177,30 @@ fun AppPickerDialog(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                if (filteredApps.isEmpty()) {
+                if (isLoading) {
+                    // Modern Asynchronous Progress Spinner Loading State
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(
+                                color = Color(0xFF16A34A),
+                                strokeWidth = 3.dp,
+                                modifier = Modifier.size(36.dp)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "Loading installed apps...",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFF64748B)
+                            )
+                        }
+                    }
+                } else if (filteredApps.isEmpty()) {
                     Text(
                         text = if (searchQuery.isBlank()) "All system installed apps are protected." else "No app found matching '$searchQuery'.",
                         fontSize = 13.sp,

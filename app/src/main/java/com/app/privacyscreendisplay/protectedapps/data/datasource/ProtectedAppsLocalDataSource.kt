@@ -17,62 +17,63 @@ import java.util.Locale
 
 private val Context.protectedAppsDataStore: DataStore<Preferences> by preferencesDataStore(name = "protected_apps_preferences")
 
+/**
+ * Local Data Source managing persistent protected applications via Jetpack DataStore.
+ * Ensures initial installs start with an empty list and automatically prunes uninstalled apps.
+ */
 class ProtectedAppsLocalDataSource(
     private val context: Context
 ) {
     private val KEY_PROTECTED_PACKAGES = stringSetPreferencesKey("protected_package_names")
 
-    // Default pre-filled items matching user screenshot: WhatsApp and PhonePe
-    private val defaultApps = listOf(
-        ProtectedApp(
-            packageName = "com.whatsapp",
-            appName = "WhatsApp",
-            categoryName = "Messages",
-            iconResName = "ic_whatsapp"
-        ),
-        ProtectedApp(
-            packageName = "com.phonepe.app",
-            appName = "PhonePe",
-            categoryName = "Payments",
-            iconResName = "ic_phonepe"
-        )
-    )
-
+    /**
+     * Observes protected apps from DataStore.
+     * Automatically filters out and cleans up any packages that were uninstalled from the device.
+     */
     fun getProtectedApps(): Flow<List<ProtectedApp>> {
         return context.protectedAppsDataStore.data.map { prefs ->
-            val savedPackages = prefs[KEY_PROTECTED_PACKAGES]
-            if (savedPackages == null) {
-                defaultApps
+            val savedPackages = prefs[KEY_PROTECTED_PACKAGES] ?: emptySet()
+            if (savedPackages.isEmpty()) {
+                emptyList()
             } else {
-                val allKnown = defaultApps.associateBy { it.packageName }.toMutableMap()
                 val pm = context.packageManager
+                val validApps = mutableListOf<ProtectedApp>()
+                val uninstalledPackages = mutableSetOf<String>()
 
-                savedPackages.map { pkg ->
-                    val defaultItem = allKnown[pkg]
-                    if (defaultItem != null) {
-                        defaultItem
-                    } else {
+                for (pkg in savedPackages) {
+                    if (isPackageInstalled(pm, pkg)) {
                         val savedLabel = prefs[stringPreferencesKey("label_$pkg")]
                         val savedCategory = prefs[stringPreferencesKey("category_$pkg")]
 
                         val resolvedLabel = savedLabel ?: resolveSystemAppLabel(pm, pkg)
                         val resolvedCategory = savedCategory ?: resolveSystemAppCategory(pm, pkg)
 
-                        ProtectedApp(
-                            packageName = pkg,
-                            appName = resolvedLabel,
-                            categoryName = resolvedCategory,
-                            iconResName = "ic_installed"
+                        validApps.add(
+                            ProtectedApp(
+                                packageName = pkg,
+                                appName = resolvedLabel,
+                                categoryName = resolvedCategory,
+                                iconResName = "ic_installed"
+                            )
                         )
+                    } else {
+                        uninstalledPackages.add(pkg)
                     }
                 }
+
+                // Asynchronously prune uninstalled packages from DataStore if any detected
+                if (uninstalledPackages.isNotEmpty()) {
+                    pruneUninstalledPackages(uninstalledPackages)
+                }
+
+                validApps
             }
         }
     }
 
     suspend fun addProtectedApp(app: ProtectedApp) {
         context.protectedAppsDataStore.edit { prefs ->
-            val current = prefs[KEY_PROTECTED_PACKAGES] ?: defaultApps.map { it.packageName }.toSet()
+            val current = prefs[KEY_PROTECTED_PACKAGES] ?: emptySet()
             prefs[KEY_PROTECTED_PACKAGES] = current + app.packageName
             prefs[stringPreferencesKey("label_${app.packageName}")] = app.appName
             prefs[stringPreferencesKey("category_${app.packageName}")] = app.categoryName
@@ -81,10 +82,40 @@ class ProtectedAppsLocalDataSource(
 
     suspend fun removeProtectedApp(packageName: String) {
         context.protectedAppsDataStore.edit { prefs ->
-            val current = prefs[KEY_PROTECTED_PACKAGES] ?: defaultApps.map { it.packageName }.toSet()
+            val current = prefs[KEY_PROTECTED_PACKAGES] ?: emptySet()
             prefs[KEY_PROTECTED_PACKAGES] = current - packageName
             prefs.remove(stringPreferencesKey("label_$packageName"))
             prefs.remove(stringPreferencesKey("category_$packageName"))
+        }
+    }
+
+    private suspend fun pruneUninstalledPackages(uninstalled: Set<String>) {
+        try {
+            context.protectedAppsDataStore.edit { prefs ->
+                val current = prefs[KEY_PROTECTED_PACKAGES] ?: emptySet()
+                prefs[KEY_PROTECTED_PACKAGES] = current - uninstalled
+                for (pkg in uninstalled) {
+                    prefs.remove(stringPreferencesKey("label_$pkg"))
+                    prefs.remove(stringPreferencesKey("category_$pkg"))
+                }
+            }
+        } catch (_: Exception) {
+            // Ignore concurrent edit exceptions
+        }
+    }
+
+    private fun isPackageInstalled(pm: PackageManager, packageName: String): Boolean {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                pm.getApplicationInfo(packageName, PackageManager.ApplicationInfoFlags.of(0L))
+            } else {
+                pm.getApplicationInfo(packageName, 0)
+            }
+            true
+        } catch (_: PackageManager.NameNotFoundException) {
+            false
+        } catch (_: Exception) {
+            false
         }
     }
 

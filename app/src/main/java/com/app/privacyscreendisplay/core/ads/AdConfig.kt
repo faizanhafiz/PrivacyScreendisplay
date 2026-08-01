@@ -8,6 +8,10 @@ package com.app.privacyscreendisplay.core.ads
  */
 object AdConfig {
 
+    // Global premium status toggle - set to true to test Premium Mode across all screens
+    @Volatile
+    var isPremiumUser: Boolean = true
+
     // Toggle this flag to switch between official Test IDs and Production IDs
     const val IS_TEST_MODE = true
 
@@ -16,7 +20,7 @@ object AdConfig {
     private const val TEST_NATIVE_AD_UNIT_ID = "ca-app-pub-3940256099942544/2247696110"
     private const val TEST_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712"
     private const val TEST_REWARDED_AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917"
-    private const val TEST_APP_OPEN_AD_UNIT_ID = "ca-app-pub-3940256099942544/9257390412"
+    private const val TEST_APP_OPEN_AD_UNIT_ID = "ca-app-pub-3940256099942544/9257395921"
 
     // Production Placeholders (Replace with your actual AdMob Dashboard IDs)
     private const val PROD_BANNER_AD_UNIT_ID = "ca-app-pub-YOUR_ADMOB_PUB_ID/YOUR_BANNER_ID"

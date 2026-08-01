@@ -1,0 +1,223 @@
+package com.app.privacyscreendisplay.core.service
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
+import androidx.core.content.ContextCompat
+import android.os.Build
+import android.os.IBinder
+import androidx.core.app.NotificationCompat
+import androidx.lifecycle.LifecycleService
+import androidx.lifecycle.lifecycleScope
+import com.app.privacyscreendisplay.MainActivity
+import com.app.privacyscreendisplay.R
+import com.app.privacyscreendisplay.core.detector.FaceDetectorEngine
+import com.app.privacyscreendisplay.core.monitor.ForegroundAppMonitor
+import com.app.privacyscreendisplay.core.overlay.SystemOverlayManager
+import com.app.privacyscreendisplay.home.data.datasource.PrivacyGuardLocalDataSource
+import com.app.privacyscreendisplay.home.domain.model.OverlayStyle
+import com.app.privacyscreendisplay.protectedapps.data.datasource.ProtectedAppsLocalDataSource
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
+
+/**
+ * Android 14+ Compliant Foreground Service for real-time Privacy Guard protection.
+ * Runs CameraX + ML Kit face detection ONLY when a user-added protected app (WhatsApp, PhonePe, Amazon, etc.)
+ * is in the foreground, and displays a system-wide WindowManager privacy overlay when shoulder surfing is detected.
+ */
+class PrivacyGuardService : LifecycleService() {
+
+    private lateinit var overlayManager: SystemOverlayManager
+    private lateinit var appMonitor: ForegroundAppMonitor
+    private lateinit var faceDetector: FaceDetectorEngine
+    private lateinit var privacyGuardDS: PrivacyGuardLocalDataSource
+    private lateinit var protectedAppsDS: ProtectedAppsLocalDataSource
+
+    private var monitorJob: Job? = null
+    private var protectedPackages = setOf<String>()
+    private var isProtectionActive = false
+    private var selectedOverlayStyle = OverlayStyle.BLUR
+    private var isCameraArmed = false
+
+    companion object {
+        private const val NOTIFICATION_ID = 1001
+        private const val CHANNEL_ID = "privacy_guard_service_channel"
+
+        fun startService(context: Context) {
+            val intent = Intent(context, PrivacyGuardService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        }
+
+        fun stopService(context: Context) {
+            val intent = Intent(context, PrivacyGuardService::class.java)
+            context.stopService(intent)
+        }
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+
+        overlayManager = SystemOverlayManager(this)
+        appMonitor = ForegroundAppMonitor(this)
+        privacyGuardDS = PrivacyGuardLocalDataSource(this)
+        protectedAppsDS = ProtectedAppsLocalDataSource(this)
+
+        faceDetector = FaceDetectorEngine(
+            context = this,
+            onShoulderSurfingDetected = {
+                if (isProtectionActive) {
+                    overlayManager.showOverlay(
+                        overlayStyle = selectedOverlayStyle,
+                        onDismiss = {
+                            overlayManager.hideOverlay()
+                            faceDetector.resetAlert()
+                        }
+                    )
+                }
+            },
+            onShoulderSurfingCleared = {
+                // Blur screen persists until user clicks dismiss button
+            }
+        )
+
+        startForegroundNotification()
+        observeProtectionState()
+    }
+
+    private fun startForegroundNotification() {
+        createNotificationChannel()
+
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("Privacy Guard is active")
+            .setContentText("Screen privacy protection monitoring active apps")
+            .setSmallIcon(android.R.drawable.ic_lock_lock)
+            .setOngoing(true)
+            .setContentIntent(pendingIntent)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
+
+        val hasCameraPermission = ContextCompat.checkSelfPermission(
+            this,
+            android.Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                if (hasCameraPermission) {
+                    startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA)
+                } else {
+                    startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+                }
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MANIFEST)
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            try {
+                startForeground(NOTIFICATION_ID, notification)
+            } catch (inner: Exception) {
+                inner.printStackTrace()
+            }
+        }
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "Privacy Guard Protection Service",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Notification displayed while Privacy Guard is actively protecting your screen."
+            }
+            val notificationManager = getSystemService(NotificationManager::class.java)
+            notificationManager?.createNotificationChannel(channel)
+        }
+    }
+
+    private fun observeProtectionState() {
+        lifecycleScope.launch {
+            combine(
+                privacyGuardDS.protectionStatusFlow,
+                protectedAppsDS.getProtectedApps()
+            ) { status, apps ->
+                isProtectionActive = status.isProtectionActive
+                selectedOverlayStyle = status.selectedOverlayStyle
+                protectedPackages = apps.map { it.packageName }.toSet()
+            }.collect {
+                updateMonitoringState()
+            }
+        }
+    }
+
+    private fun updateMonitoringState() {
+        monitorJob?.cancel()
+
+        if (!isProtectionActive || protectedPackages.isEmpty()) {
+            disarmCamera()
+            return
+        }
+
+        monitorJob = lifecycleScope.launch {
+            while (true) {
+                val isProtectedAppActive = appMonitor.isProtectedAppInForeground(protectedPackages)
+
+                if (isProtectedAppActive && !isCameraArmed) {
+                    armCamera()
+                } else if (!isProtectedAppActive && isCameraArmed) {
+                    disarmCamera()
+                }
+
+                delay(1800L) // Poll foreground app state every 1.8s
+            }
+        }
+    }
+
+    private fun armCamera() {
+        if (isCameraArmed) return
+        try {
+            faceDetector.startDetection(this)
+            isCameraArmed = true
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun disarmCamera() {
+        if (!isCameraArmed) return
+        try {
+            faceDetector.stopDetection()
+            isCameraArmed = false
+            // Overlay remains visible until the user manually clicks the Dismiss button inside FullProtectionOverlay
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        monitorJob?.cancel()
+        disarmCamera()
+        faceDetector.release()
+    }
+}

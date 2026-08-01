@@ -28,7 +28,13 @@ class ProtectedAppsViewModel(
     private fun loadProtectedApps() {
         viewModelScope.launch {
             getProtectedAppsUseCase().collect { apps ->
-                _uiState.update { it.copy(protectedApps = apps, isLoading = false) }
+                _uiState.update { 
+                    it.copy(
+                        protectedApps = apps, 
+                        isLoading = false,
+                        isPremiumUser = com.app.privacyscreendisplay.core.ads.AdConfig.isPremiumUser
+                    ) 
+                }
             }
         }
     }

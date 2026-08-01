@@ -4,8 +4,8 @@ import com.app.privacyscreendisplay.protectedapps.domain.model.ProtectedApp
 
 data class ProtectedAppsUiState(
     val protectedApps: List<ProtectedApp> = emptyList(),
-    val maxFreeAppsAllowed: Int = 2,
-    val isPremiumUser: Boolean = false,
+    val maxFreeAppsAllowed: Int = 10,
+    val isPremiumUser: Boolean = true,
     val isLoading: Boolean = false
 ) {
     val currentAppsCount: Int get() = protectedApps.size

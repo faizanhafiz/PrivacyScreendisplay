@@ -20,8 +20,10 @@ class PrivacyGuardApplication : Application() {
         appOpenAdManager = AppOpenAdManager(this)
 
         // Initialize Google Mobile Ads & Meta Mediation SDK
-        AdManager.initialize(this) {
-            appOpenAdManager.fetchAd(showOnLoad = true)
+        com.app.privacyscreendisplay.core.ads.AdManager.initialize(this) {
+            if (!com.app.privacyscreendisplay.core.ads.AdConfig.isPremiumUser) {
+                appOpenAdManager.fetchAd(showOnLoad = false)
+            }
         }
     }
 }

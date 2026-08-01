@@ -204,14 +204,16 @@ fun ProtectedAppsContent(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // 1. Hero Free Plan Quota Card
-            PlanQuotaCard(
-                currentCount = uiState.currentAppsCount,
-                maxAllowed = uiState.maxFreeAppsAllowed,
-                onUpgradeClick = onUpgradeClick
-            )
+            // 1. Hero Free Plan Quota Card (Suppressed for Premium Users)
+            if (!uiState.isPremiumUser) {
+                PlanQuotaCard(
+                    currentCount = uiState.currentAppsCount,
+                    maxAllowed = uiState.maxFreeAppsAllowed,
+                    onUpgradeClick = onUpgradeClick
+                )
 
-            Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
             // 2. Ads placement (Same as in Home Screen) placed right after Free plan card
             if (!uiState.isPremiumUser) {
@@ -223,9 +225,15 @@ fun ProtectedAppsContent(
                 Spacer(modifier = Modifier.height(20.dp))
             }
 
-            // 3. Added Apps Section
+            // 3. Added Apps Section Header (Hides max free quota for Premium Users)
+            val addedAppsHeaderText = if (uiState.isPremiumUser) {
+                "Added Apps (${uiState.currentAppsCount})"
+            } else {
+                "Added Apps (${uiState.currentAppsCount}/${uiState.maxFreeAppsAllowed})"
+            }
+
             Text(
-                text = "Added Apps (${uiState.currentAppsCount}/${uiState.maxFreeAppsAllowed})",
+                text = addedAppsHeaderText,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
@@ -243,21 +251,23 @@ fun ProtectedAppsContent(
             // 4. Add App Action Button (Moved UP directly below Added Apps list)
             AddAppButton(onClick = onAddAppClick)
 
-            Spacer(modifier = Modifier.height(24.dp))
+            // 5. Upgrade to Premium Prompt Card (Suppressed for Premium Users)
+            if (!uiState.isPremiumUser) {
+                Spacer(modifier = Modifier.height(24.dp))
 
-            // 5. Upgrade to Premium Prompt Card (Placed AFTER Add App button)
-            Text(
-                text = "Want to protect more apps?",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
+                Text(
+                    text = "Want to protect more apps?",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
 
-            Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-            UpgradePremiumPromptCard(onUpgradeClick = onUpgradeClick)
+                UpgradePremiumPromptCard(onUpgradeClick = onUpgradeClick)
 
-            Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(24.dp))
+            }
         }
     }
 }

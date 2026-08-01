@@ -61,7 +61,7 @@ fun AdMobBottomSheetAdDialog(
     adUnitId: String = AdConfig.nativeAdUnitId,
     onAdClick: () -> Unit = {}
 ) {
-    if (!isVisible) return
+    if (!isVisible || AdConfig.isPremiumUser) return
 
     var nativeAdState by remember { mutableStateOf<NativeAd?>(null) }
     var isLoading by remember { mutableStateOf(true) }

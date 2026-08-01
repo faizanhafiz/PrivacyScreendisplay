@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.app.privacyscreendisplay.core.ads.AdConfig
 import com.app.privacyscreendisplay.home.domain.model.OverlayStyle
 import com.app.privacyscreendisplay.home.domain.model.ProtectionStatus
 import com.app.privacyscreendisplay.home.domain.model.SensitivityLevel
@@ -16,18 +17,20 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import java.io.IOException
 
-private val Context.homeDataStore: DataStore<Preferences> by preferencesDataStore(name = "privacy_guard_home_settings")
+private val Context.homeDataStore: DataStore<Preferences> by preferencesDataStore(name = "privacy_guard_home_preferences")
 
 /**
- * Data Source managing real-time protection preferences and overlay configurations.
+ * Local Data Source for managing persistent Home Screen protection settings via Jetpack DataStore.
  */
 class PrivacyGuardLocalDataSource(
     private val context: Context
 ) {
+
     private object Keys {
         val PROTECTION_ACTIVE = booleanPreferencesKey("key_protection_active")
         val OVERLAY_STYLE = stringPreferencesKey("key_overlay_style")
         val SENSITIVITY_LEVEL = stringPreferencesKey("key_sensitivity_level")
+        val IS_PREMIUM = booleanPreferencesKey("key_is_premium")
     }
 
     val protectionStatusFlow: Flow<ProtectionStatus> = context.homeDataStore.data
@@ -42,6 +45,8 @@ class PrivacyGuardLocalDataSource(
             val isActive = preferences[Keys.PROTECTION_ACTIVE] ?: true
             val styleName = preferences[Keys.OVERLAY_STYLE] ?: OverlayStyle.BLUR.name
             val sensitivityName = preferences[Keys.SENSITIVITY_LEVEL] ?: SensitivityLevel.MEDIUM.name
+            val isPremiumPersisted = preferences[Keys.IS_PREMIUM] ?: false
+            val isPremiumEffective = isPremiumPersisted || AdConfig.isPremiumUser
 
             val overlayStyle = try {
                 OverlayStyle.valueOf(styleName)
@@ -55,13 +60,16 @@ class PrivacyGuardLocalDataSource(
                 SensitivityLevel.MEDIUM
             }
 
+            // Sync global AdConfig state with effective subscription entitlement
+            AdConfig.isPremiumUser = isPremiumEffective
+
             ProtectionStatus(
                 isProtectionActive = isActive,
                 selectedOverlayStyle = overlayStyle,
                 sensitivity = sensitivity,
-                protectedAppsCount = 8,
+                protectedAppsCount = 0,
                 detectionsToday = 4,
-                isPremiumSubscriber = false
+                isPremiumSubscriber = isPremiumEffective
             )
         }
 
@@ -81,5 +89,12 @@ class PrivacyGuardLocalDataSource(
         context.homeDataStore.edit { preferences ->
             preferences[Keys.SENSITIVITY_LEVEL] = sensitivity.name
         }
+    }
+
+    suspend fun setPremiumStatus(isPremium: Boolean) {
+        context.homeDataStore.edit { preferences ->
+            preferences[Keys.IS_PREMIUM] = isPremium
+        }
+        AdConfig.isPremiumUser = isPremium
     }
 }
