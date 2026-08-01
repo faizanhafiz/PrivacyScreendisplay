@@ -12,9 +12,14 @@ hilt = "2.51.1"
 hiltNavigationCompose = "1.2.0"
 datastore = "1.1.1"
 navigationCompose = "2.8.5"
+playServicesAds = "23.3.0"
+metaMediation = "6.18.0.0"
 lifecycleViewModelCompose = "2.8.7"
 
 [libraries]
+play-services-ads = { group = "com.google.android.gms", name = "play-services-ads", version.ref = "playServicesAds" }
+meta-admob-adapter = { group = "com.google.ads.mediation", name = "facebook", version.ref = "metaMediation" }
+androidx-lifecycle-process = { group = "androidx.lifecycle", name = "lifecycle-process", version.ref = "lifecycleRuntimeKtx" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }

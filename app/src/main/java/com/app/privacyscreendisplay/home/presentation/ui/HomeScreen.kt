@@ -35,8 +35,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.app.privacyscreendisplay.core.ads.AdMobBottomSheetAdDialog
+import com.app.privacyscreendisplay.core.ui.components.FullProtectionOverlay
+import com.app.privacyscreendisplay.core.ui.components.LocalToastState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -68,7 +75,7 @@ fun HomeScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val context = LocalContext.current
+    val toastState = LocalToastState.current
 
     LaunchedEffect(Unit) {
         viewModel.uiEvent.collect { event ->
@@ -78,7 +85,7 @@ fun HomeScreen(
                 is HomeUiEvent.NavigateToActivityLog -> onNavigateToActivityLog()
                 is HomeUiEvent.NavigateToPremiumPurchase -> onNavigateToPremium()
                 is HomeUiEvent.ShowToast -> {
-                    Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
+                    toastState.show(event.message)
                 }
             }
         }
@@ -86,13 +93,14 @@ fun HomeScreen(
 
     HomeScreenContent(
         uiState = uiState,
+        shouldShowLaunchAd = viewModel::shouldShowLaunchAd,
         onToggleProtection = viewModel::onToggleProtectionClicked,
         onStyleSelected = viewModel::onOverlayStyleSelected,
         onSensitivitySelected = viewModel::onSensitivitySelected,
-        onProtectedAppsClick = viewModel::onProtectedAppsClicked,
-        onActivityLogClick = viewModel::onActivityLogClicked,
-        onPremiumClick = viewModel::onPremiumBannerClicked,
-        onSettingsClick = viewModel::onSettingsClicked,
+        onProtectedAppsClick = onNavigateToProtectedApps,
+        onActivityLogClick = onNavigateToActivityLog,
+        onPremiumClick = onNavigateToPremium,
+        onSettingsClick = onNavigateToSettings,
         modifier = modifier
     )
 }
@@ -103,6 +111,7 @@ fun HomeScreen(
 @Composable
 fun HomeScreenContent(
     uiState: HomeUiState,
+    shouldShowLaunchAd: () -> Boolean = { false },
     onToggleProtection: () -> Unit,
     onStyleSelected: (OverlayStyle) -> Unit,
     onSensitivitySelected: (SensitivityLevel) -> Unit,
@@ -113,17 +122,37 @@ fun HomeScreenContent(
     modifier: Modifier = Modifier
 ) {
     val status = uiState.protectionStatus
+    var showBottomSheetAd by remember { mutableStateOf(false) }
+    var showProtectionOverlay by remember { mutableStateOf(false) }
 
-    Scaffold(
-        modifier = modifier
-            .fillMaxSize()
-            .statusBarsPadding()
-            .navigationBarsPadding(),
-        topBar = {
-            Row(
+    // Trigger Bottom Sheet Modal Dialog Ad ONLY on initial app launch
+    LaunchedEffect(Unit) {
+        if (shouldShowLaunchAd()) {
+            kotlinx.coroutines.delay(1200L)
+            showBottomSheetAd = true
+        }
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .blur(if (showProtectionOverlay) 25.dp else 0.dp)
+                .statusBarsPadding()
+                .navigationBarsPadding(),
+            color = MaterialTheme.colorScheme.background
+        ) {
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp)
+            ) {
+                Spacer(modifier = Modifier.height(12.dp))
+
+            // Header TopBar (Scrolls together with screen content)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
@@ -179,26 +208,14 @@ fun HomeScreenContent(
                     )
                 }
             }
-        }
-    ) { innerPadding ->
-        Surface(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            color = MaterialTheme.colorScheme.background
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp)
-            ) {
-                Spacer(modifier = Modifier.height(8.dp))
 
-                // 1. Hero Protection Banner Switch Card
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 1. Hero Protection Banner Switch Card
                 ProtectionStatusCard(
                     status = status,
-                    onToggleProtection = onToggleProtection
+                    onToggleProtection = onToggleProtection,
+                    onTestOverlayClick = { showProtectionOverlay = true }
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -231,7 +248,16 @@ fun HomeScreenContent(
                     iconTint = Color(0xFF16A34A)
                 )
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Inline Ad Placement right after Protected Apps card
+                if (!status.isPremiumSubscriber) {
+                    com.app.privacyscreendisplay.home.presentation.ui.components.AdBannerCard(
+                        onAdClick = onPremiumClick
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                }
 
                 QuickSettingCard(
                     title = "AI Detection Sensitivity",
@@ -249,66 +275,30 @@ fun HomeScreenContent(
                     iconTint = Color(0xFF0284C7)
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
-                // 4. Activity Timeline Log Summary Card
+                // Activity Timeline Log Summary Card
                 ActivityTimelinePreviewCard(
                     detectionsTodayCount = status.detectionsToday,
                     onViewLogClick = onActivityLogClick
                 )
 
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // 5. Premium Subscription Upgrade Card
-                if (!status.isPremiumSubscriber) {
-                    Card(
-                        onClick = onPremiumClick,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(
-                                    Brush.horizontalGradient(
-                                        colors = listOf(Color(0xFF7C3AED), Color(0xFFC084FC))
-                                    )
-                                )
-                                .padding(18.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Star,
-                                    contentDescription = null,
-                                    tint = Color(0xFFFDE047),
-                                    modifier = Modifier.size(32.dp)
-                                )
-
-                                Spacer(modifier = Modifier.width(14.dp))
-
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "Upgrade to Privacy Guard PRO",
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White
-                                    )
-
-                                    Spacer(modifier = Modifier.height(2.dp))
-
-                                    Text(
-                                        text = "Unlock Gradient & Minimal overlays, zero ads & unlimited protection.",
-                                        fontSize = 11.sp,
-                                        color = Color.White.copy(alpha = 0.9f)
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-                }
+                Spacer(modifier = Modifier.height(24.dp))
             }
         }
+
+        // Bottom Sheet Interstitial Native Dialog Ad Overlay
+        AdMobBottomSheetAdDialog(
+            isVisible = showBottomSheetAd,
+            onDismiss = { showBottomSheetAd = false },
+            onAdClick = onPremiumClick
+        )
+
+        // Full Screen Privacy Protection Overlay (Triggered on shoulder surfing detection)
+        FullProtectionOverlay(
+            isVisible = showProtectionOverlay,
+            overlayStyle = status.selectedOverlayStyle,
+            onDismiss = { showProtectionOverlay = false }
+        )
     }
 }

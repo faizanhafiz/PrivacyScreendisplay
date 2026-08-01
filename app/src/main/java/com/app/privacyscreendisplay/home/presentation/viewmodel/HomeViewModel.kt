@@ -8,6 +8,7 @@ import com.app.privacyscreendisplay.home.domain.usecase.GetProtectionStatusUseCa
 import com.app.privacyscreendisplay.home.domain.usecase.ToggleProtectionUseCase
 import com.app.privacyscreendisplay.home.domain.usecase.UpdateOverlayStyleUseCase
 import com.app.privacyscreendisplay.home.domain.usecase.UpdateSensitivityUseCase
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -28,10 +29,23 @@ class HomeViewModel(
     private val updateSensitivityUseCase: UpdateSensitivityUseCase
 ) : ViewModel() {
 
+    private var hasShownLaunchAd = false
+
+    fun shouldShowLaunchAd(): Boolean {
+        if (!hasShownLaunchAd) {
+            hasShownLaunchAd = true
+            return true
+        }
+        return false
+    }
+
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-    private val _uiEvent = MutableSharedFlow<HomeUiEvent>()
+    private val _uiEvent = MutableSharedFlow<HomeUiEvent>(
+        extraBufferCapacity = 64,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
     val uiEvent: SharedFlow<HomeUiEvent> = _uiEvent.asSharedFlow()
 
     init {

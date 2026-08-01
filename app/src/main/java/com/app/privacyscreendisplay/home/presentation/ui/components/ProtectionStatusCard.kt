@@ -45,10 +45,16 @@ import com.app.privacyscreendisplay.home.domain.model.ProtectionStatus
  * Modern Material 3 Hero Protection Status Banner with pulsing camera lens graphics,
  * dynamic gradient state adaptation, and primary master switch control.
  */
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material3.HorizontalDivider
+
 @Composable
 fun ProtectionStatusCard(
     status: ProtectionStatus,
     onToggleProtection: () -> Unit,
+    onTestOverlayClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val isActive = status.isProtectionActive
@@ -142,6 +148,47 @@ fun ProtectionStatusCard(
                             uncheckedTrackColor = Color(0xFF1F2937)
                         )
                     )
+                }
+
+                if (isActive && onTestOverlayClick != null) {
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.25f), thickness = 1.dp)
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color.White.copy(alpha = 0.18f))
+                            .clickable { onTestOverlayClick() }
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Rounded.Visibility,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Simulate Shoulder Surfer Detection",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                        Text(
+                            text = "Test ➔",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color.White
+                        )
+                    }
                 }
             }
         }

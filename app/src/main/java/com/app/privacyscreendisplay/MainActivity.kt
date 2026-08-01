@@ -20,14 +20,36 @@ import com.app.privacyscreendisplay.onboarding.presentation.ui.OnboardingScreen
 import com.app.privacyscreendisplay.onboarding.presentation.viewmodel.OnboardingViewModel
 import com.app.privacyscreendisplay.ui.theme.PrivacyScreendisplayTheme
 
+import com.app.privacyscreendisplay.core.ads.AdManager
+import com.app.privacyscreendisplay.core.ads.AppOpenAdManager
+
+import com.app.privacyscreendisplay.protectedapps.di.ProtectedAppsModule
+import com.app.privacyscreendisplay.protectedapps.presentation.ui.ProtectedAppsScreen
+import com.app.privacyscreendisplay.protectedapps.presentation.viewmodel.ProtectedAppsViewModel
+
+import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.CompositionLocalProvider
+import com.app.privacyscreendisplay.core.ui.components.LocalToastState
+import com.app.privacyscreendisplay.core.ui.components.ModernToastHost
+import com.app.privacyscreendisplay.core.ui.components.ToastType
+import com.app.privacyscreendisplay.core.ui.components.rememberModernToastState
+
 class MainActivity : ComponentActivity() {
 
     private lateinit var onboardingViewModel: OnboardingViewModel
     private lateinit var homeViewModel: HomeViewModel
+    private lateinit var protectedAppsViewModel: ProtectedAppsViewModel
+    private lateinit var appOpenAdManager: AppOpenAdManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Access Application-level AppOpenAdManager
+        (application as? PrivacyGuardApplication)?.appOpenAdManager?.let { manager ->
+            appOpenAdManager = manager
+            manager.showAdIfAvailable(this@MainActivity)
+        }
 
         // Onboarding DI & ViewModel
         val onboardingDS = OnboardingModule.provideOnboardingLocalDataSource(applicationContext)
@@ -47,52 +69,85 @@ class MainActivity : ComponentActivity() {
             updateSensitivityUseCase = HomeModule.provideUpdateSensitivityUseCase(homeRepo)
         )
 
+        // Protected Apps DI & ViewModel
+        val protectedAppsDS = ProtectedAppsModule.provideProtectedAppsLocalDataSource(applicationContext)
+        val protectedAppsRepo = ProtectedAppsModule.provideProtectedAppsRepository(protectedAppsDS)
+        protectedAppsViewModel = ProtectedAppsViewModel(
+            getProtectedAppsUseCase = ProtectedAppsModule.provideGetProtectedAppsUseCase(protectedAppsRepo),
+            addProtectedAppUseCase = ProtectedAppsModule.provideAddProtectedAppUseCase(protectedAppsRepo),
+            removeProtectedAppUseCase = ProtectedAppsModule.provideRemoveProtectedAppUseCase(protectedAppsRepo)
+        )
+
         setContent {
             PrivacyScreendisplayTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    val navController = rememberNavController()
+                val toastState = rememberModernToastState()
 
-                    NavHost(
-                        navController = navController,
-                        startDestination = "onboarding"
+                CompositionLocalProvider(LocalToastState provides toastState) {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.background
                     ) {
-                        composable("onboarding") {
-                            OnboardingScreen(
-                                viewModel = onboardingViewModel,
-                                onNavigateToHome = {
-                                    navController.navigate("home") {
-                                        popUpTo("onboarding") { inclusive = true }
-                                    }
-                                },
-                                onNavigateToLearnMore = {
-                                    Toast.makeText(
-                                        this@MainActivity,
-                                        "Privacy Guard AI protects your screen from shoulder surfers on-device.",
-                                        Toast.LENGTH_LONG
-                                    ).show()
-                                }
-                            )
-                        }
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            val navController = rememberNavController()
 
-                        composable("home") {
-                            HomeScreen(
-                                viewModel = homeViewModel,
-                                onNavigateToSettings = {
-                                    Toast.makeText(this@MainActivity, "Opening Settings...", Toast.LENGTH_SHORT).show()
-                                },
-                                onNavigateToProtectedApps = {
-                                    Toast.makeText(this@MainActivity, "Opening Protected Apps Selection...", Toast.LENGTH_SHORT).show()
-                                },
-                                onNavigateToActivityLog = {
-                                    Toast.makeText(this@MainActivity, "Opening Activity Log...", Toast.LENGTH_SHORT).show()
-                                },
-                                onNavigateToPremium = {
-                                    Toast.makeText(this@MainActivity, "Opening Google Play Premium Billing...", Toast.LENGTH_SHORT).show()
+                            NavHost(
+                                navController = navController,
+                                startDestination = "onboarding"
+                            ) {
+                                composable("onboarding") {
+                                    OnboardingScreen(
+                                        viewModel = onboardingViewModel,
+                                        onNavigateToHome = {
+                                            navController.navigate("home") {
+                                                popUpTo("onboarding") { inclusive = true }
+                                            }
+                                        },
+                                        onNavigateToLearnMore = {
+                                            toastState.show(
+                                                "Privacy Guard AI protects your screen from shoulder surfers on-device.",
+                                                ToastType.INFO
+                                            )
+                                        }
+                                    )
                                 }
-                            )
+
+                                composable("home") {
+                                    HomeScreen(
+                                        viewModel = homeViewModel,
+                                        onNavigateToSettings = {
+                                            toastState.show("Opening Settings...", ToastType.INFO)
+                                        },
+                                        onNavigateToProtectedApps = {
+                                            if (navController.currentDestination?.route != "protected_apps") {
+                                                navController.navigate("protected_apps") {
+                                                    launchSingleTop = true
+                                                }
+                                            }
+                                        },
+                                        onNavigateToActivityLog = {
+                                            toastState.show("Opening Activity Log...", ToastType.INFO)
+                                        },
+                                        onNavigateToPremium = {
+                                            toastState.show("Opening Google Play Premium Billing...", ToastType.INFO)
+                                        }
+                                    )
+                                }
+
+                                composable("protected_apps") {
+                                    ProtectedAppsScreen(
+                                        viewModel = protectedAppsViewModel,
+                                        onNavigateBack = {
+                                            navController.popBackStack()
+                                        },
+                                        onNavigateToPremium = {
+                                            toastState.show("Opening Premium Subscription Paywall...", ToastType.INFO)
+                                        }
+                                    )
+                                }
+                            }
+
+                            // App-wide animated toast banner host overlay
+                            ModernToastHost(toastState = toastState)
                         }
                     }
                 }
