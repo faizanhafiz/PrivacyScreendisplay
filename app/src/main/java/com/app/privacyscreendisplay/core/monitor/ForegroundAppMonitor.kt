@@ -18,6 +18,7 @@ class ForegroundAppMonitor(
     private val context: Context
 ) {
     private val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
+    private var lastKnownForegroundPackage: String? = null
 
     /**
      * Checks if Usage Access permission is granted in System Settings.
@@ -53,24 +54,37 @@ class ForegroundAppMonitor(
 
     /**
      * Returns the package name of the application currently in the foreground.
+     * Continuously retains and updates foreground app state across polling cycles
+     * so face protection stays active for ALL protected apps without timing out.
      */
+    @Suppress("DEPRECATION")
     fun getForegroundPackageName(): String? {
         if (!hasUsageAccessPermission() || usageStatsManager == null) return null
 
         val endTime = System.currentTimeMillis()
-        val startTime = endTime - 5000L
+        // Use a 60s initial lookback window on cold start, 10s for ongoing polling cycles
+        val lookbackMs = if (lastKnownForegroundPackage == null) 60000L else 10000L
+        val startTime = endTime - lookbackMs
 
-        val usageEvents = usageStatsManager.queryEvents(startTime, endTime) ?: return null
+        val usageEvents = usageStatsManager.queryEvents(startTime, endTime) ?: return lastKnownForegroundPackage
         val event = UsageEvents.Event()
-        var lastForegroundPackage: String? = null
 
         while (usageEvents.hasNextEvent()) {
             usageEvents.getNextEvent(event)
-            if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
-                lastForegroundPackage = event.packageName
+            val eventType = event.eventType
+
+            if (eventType == UsageEvents.Event.MOVE_TO_FOREGROUND ||
+                (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && eventType == UsageEvents.Event.ACTIVITY_RESUMED)) {
+                lastKnownForegroundPackage = event.packageName
+            } else if (eventType == UsageEvents.Event.MOVE_TO_BACKGROUND ||
+                (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && eventType == UsageEvents.Event.ACTIVITY_PAUSED)) {
+                if (lastKnownForegroundPackage == event.packageName) {
+                    lastKnownForegroundPackage = null
+                }
             }
         }
-        return lastForegroundPackage
+
+        return lastKnownForegroundPackage
     }
 
     /**
