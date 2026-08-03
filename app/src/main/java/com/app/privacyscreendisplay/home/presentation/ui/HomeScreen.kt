@@ -41,6 +41,7 @@ import androidx.compose.runtime.setValue
 import com.app.privacyscreendisplay.core.ads.AdMobBottomSheetAdDialog
 import com.app.privacyscreendisplay.core.ui.components.FullProtectionOverlay
 import com.app.privacyscreendisplay.core.ui.components.LocalToastState
+import com.app.privacyscreendisplay.core.ui.components.ToastType
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -62,6 +63,13 @@ import com.app.privacyscreendisplay.home.presentation.viewmodel.HomeUiEvent
 import com.app.privacyscreendisplay.home.presentation.viewmodel.HomeUiState
 import com.app.privacyscreendisplay.home.presentation.viewmodel.HomeViewModel
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import android.provider.Settings
+import androidx.core.content.ContextCompat
+import com.app.privacyscreendisplay.core.monitor.ForegroundAppMonitor
+
 /**
  * Stateful entry point for the Privacy Guard Home Screen.
  */
@@ -72,10 +80,12 @@ fun HomeScreen(
     onNavigateToProtectedApps: () -> Unit,
     onNavigateToActivityLog: () -> Unit,
     onNavigateToPremium: () -> Unit,
+    onNavigateToPermission: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val toastState = LocalToastState.current
+    val context = LocalContext.current
 
     LaunchedEffect(Unit) {
         viewModel.uiEvent.collect { event ->
@@ -91,10 +101,29 @@ fun HomeScreen(
         }
     }
 
+    val onToggleWithPermissionCheck = {
+        val hasCamera = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        val hasOverlay = Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(context)
+        val hasUsageAccess = ForegroundAppMonitor(context).hasUsageAccessPermission()
+
+        if (!hasCamera) {
+            toastState.show("Camera permission required to activate protection", ToastType.WARNING)
+            onNavigateToPermission("permission_camera")
+        } else if (!hasOverlay) {
+            toastState.show("Display over other apps permission required to activate protection", ToastType.WARNING)
+            onNavigateToPermission("permission_overlay")
+        } else if (!hasUsageAccess) {
+            toastState.show("Usage Access permission required to activate protection", ToastType.WARNING)
+            onNavigateToPermission("permission_usage_access")
+        } else {
+            viewModel.onToggleProtectionClicked()
+        }
+    }
+
     HomeScreenContent(
         uiState = uiState,
         shouldShowLaunchAd = viewModel::shouldShowLaunchAd,
-        onToggleProtection = viewModel::onToggleProtectionClicked,
+        onToggleProtection = onToggleWithPermissionCheck,
         onStyleSelected = viewModel::onOverlayStyleSelected,
         onSensitivitySelected = viewModel::onSensitivitySelected,
         onProtectedAppsClick = onNavigateToProtectedApps,
@@ -267,7 +296,7 @@ fun HomeScreenContent(
 
                 QuickSettingCard(
                     title = "AI Detection Sensitivity",
-                    subtitle = "Required confidence threshold for extra face trigger",
+                    subtitle = status.sensitivity.subtitleDescription,
                     icon = Icons.Rounded.Psychology,
                     badgeText = status.sensitivity.displayName,
                     onClick = {

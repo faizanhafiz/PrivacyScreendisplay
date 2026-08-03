@@ -39,6 +39,11 @@ import com.app.privacyscreendisplay.onboarding.presentation.viewmodel.Onboarding
 import com.app.privacyscreendisplay.protectedapps.di.ProtectedAppsModule
 import com.app.privacyscreendisplay.protectedapps.presentation.ui.ProtectedAppsScreen
 import com.app.privacyscreendisplay.protectedapps.presentation.viewmodel.ProtectedAppsViewModel
+import com.app.privacyscreendisplay.premium.presentation.ui.PremiumPaywallScreen
+import com.app.privacyscreendisplay.setup.presentation.ui.PermissionCameraScreen
+import com.app.privacyscreendisplay.setup.presentation.ui.PermissionOverlayScreen
+import com.app.privacyscreendisplay.setup.presentation.ui.PermissionSetupIntroScreen
+import com.app.privacyscreendisplay.setup.presentation.ui.PermissionUsageAccessScreen
 import com.app.privacyscreendisplay.ui.theme.PrivacyScreendisplayTheme
 
 class MainActivity : ComponentActivity() {
@@ -46,7 +51,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var onboardingViewModel: OnboardingViewModel
     private lateinit var homeViewModel: HomeViewModel
     private lateinit var protectedAppsViewModel: ProtectedAppsViewModel
-    private lateinit var appOpenAdManager: AppOpenAdManager
+    private var appOpenAdManager: AppOpenAdManager? = null
+    private var pendingAutoEnableProtection = false
 
     private val requestCameraPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -68,20 +74,23 @@ class MainActivity : ComponentActivity() {
             completeOnboardingUseCase = OnboardingModule.provideCompleteOnboardingUseCase(onboardingRepo)
         )
 
+        // Home DI & ViewModel
+        val homeDS = HomeModule.providePrivacyGuardLocalDataSource(applicationContext)
+        val homeRepo = HomeModule.providePrivacyGuardRepository(homeDS)
+        val getProtectionStatusUseCase = HomeModule.provideGetProtectionStatusUseCase(homeRepo)
+
         // Protected Apps DI & ViewModel
         val protectedAppsDS = ProtectedAppsModule.provideProtectedAppsLocalDataSource(applicationContext)
         val protectedAppsRepo = ProtectedAppsModule.provideProtectedAppsRepository(protectedAppsDS)
         protectedAppsViewModel = ProtectedAppsViewModel(
             getProtectedAppsUseCase = ProtectedAppsModule.provideGetProtectedAppsUseCase(protectedAppsRepo),
             addProtectedAppUseCase = ProtectedAppsModule.provideAddProtectedAppUseCase(protectedAppsRepo),
-            removeProtectedAppUseCase = ProtectedAppsModule.provideRemoveProtectedAppUseCase(protectedAppsRepo)
+            removeProtectedAppUseCase = ProtectedAppsModule.provideRemoveProtectedAppUseCase(protectedAppsRepo),
+            getProtectionStatusUseCase = getProtectionStatusUseCase
         )
 
-        // Home DI & ViewModel
-        val homeDS = HomeModule.providePrivacyGuardLocalDataSource(applicationContext)
-        val homeRepo = HomeModule.providePrivacyGuardRepository(homeDS)
         homeViewModel = HomeViewModel(
-            getProtectionStatusUseCase = HomeModule.provideGetProtectionStatusUseCase(homeRepo),
+            getProtectionStatusUseCase = getProtectionStatusUseCase,
             getProtectedAppsUseCase = ProtectedAppsModule.provideGetProtectedAppsUseCase(protectedAppsRepo),
             toggleProtectionUseCase = HomeModule.provideToggleProtectionUseCase(homeRepo),
             updateOverlayStyleUseCase = HomeModule.provideUpdateOverlayStyleUseCase(homeRepo),
@@ -102,7 +111,11 @@ class MainActivity : ComponentActivity() {
                             val isOnboardingCompleted by onboardingDS.isOnboardingCompletedFlow.collectAsState(initial = null)
 
                             if (isOnboardingCompleted != null) {
-                                val startDest = if (isOnboardingCompleted == true) "home" else "onboarding"
+                                val startDest = when {
+                                    isOnboardingCompleted != true -> "onboarding"
+                                    getNextMissingPermissionRoute() != null -> "permission_setup_intro"
+                                    else -> "home"
+                                }
 
                                 NavHost(
                                     navController = navController,
@@ -112,7 +125,7 @@ class MainActivity : ComponentActivity() {
                                         OnboardingScreen(
                                             viewModel = onboardingViewModel,
                                             onNavigateToHome = {
-                                                navController.navigate("home") {
+                                                navController.navigate("permission_setup_intro") {
                                                     popUpTo("onboarding") { inclusive = true }
                                                 }
                                             },
@@ -125,10 +138,141 @@ class MainActivity : ComponentActivity() {
                                         )
                                     }
 
+                                    composable("permission_setup_intro") {
+                                        PermissionSetupIntroScreen(
+                                            onStartSetupClick = {
+                                                val nextRoute = getNextMissingPermissionRoute() ?: "home"
+                                                navController.navigate(nextRoute)
+                                            }
+                                        )
+                                    }
+
+                                    composable("permission_camera") {
+                                        PermissionCameraScreen(
+                                            onAllowCameraClick = {
+                                                requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                                                val hasOverlay = Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this@MainActivity)
+                                                val hasUsageAccess = ForegroundAppMonitor(this@MainActivity).hasUsageAccessPermission()
+
+                                                val nextRoute = if (!hasOverlay) "permission_overlay"
+                                                else if (!hasUsageAccess) "permission_usage_access"
+                                                else null
+
+                                                if (nextRoute != null) {
+                                                    navController.navigate(nextRoute)
+                                                } else {
+                                                    navController.navigate("home") {
+                                                        popUpTo("permission_setup_intro") { inclusive = true }
+                                                    }
+                                                }
+                                            },
+                                            onNotNowClick = {
+                                                val hasOverlay = Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this@MainActivity)
+                                                val hasUsageAccess = ForegroundAppMonitor(this@MainActivity).hasUsageAccessPermission()
+
+                                                val nextRoute = if (!hasOverlay) "permission_overlay"
+                                                else if (!hasUsageAccess) "permission_usage_access"
+                                                else null
+
+                                                if (nextRoute != null) {
+                                                    navController.navigate(nextRoute)
+                                                } else {
+                                                    navController.navigate("home") {
+                                                        popUpTo("permission_setup_intro") { inclusive = true }
+                                                    }
+                                                }
+                                            },
+                                            onNavigateBack = {
+                                                navController.popBackStack()
+                                            }
+                                        )
+                                    }
+
+                                    composable("permission_overlay") {
+                                        PermissionOverlayScreen(
+                                            onOpenSettingsClick = {
+                                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this@MainActivity)) {
+                                                    try {
+                                                        val intent = Intent(
+                                                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                                            Uri.parse("package:$packageName")
+                                                        )
+                                                        startActivity(intent)
+                                                    } catch (e: Exception) {
+                                                        e.printStackTrace()
+                                                    }
+                                                }
+                                                val hasUsageAccess = ForegroundAppMonitor(this@MainActivity).hasUsageAccessPermission()
+                                                if (!hasUsageAccess) {
+                                                    navController.navigate("permission_usage_access")
+                                                } else {
+                                                    navController.navigate("home") {
+                                                        popUpTo("permission_setup_intro") { inclusive = true }
+                                                    }
+                                                }
+                                            },
+                                            onNotNowClick = {
+                                                val hasUsageAccess = ForegroundAppMonitor(this@MainActivity).hasUsageAccessPermission()
+                                                if (!hasUsageAccess) {
+                                                    navController.navigate("permission_usage_access")
+                                                } else {
+                                                    navController.navigate("home") {
+                                                        popUpTo("permission_setup_intro") { inclusive = true }
+                                                    }
+                                                }
+                                            },
+                                            onNavigateBack = {
+                                                navController.popBackStack()
+                                            }
+                                        )
+                                    }
+
+                                    composable("permission_usage_access") {
+                                        PermissionUsageAccessScreen(
+                                            onOpenUsageAccessClick = {
+                                                val appMonitor = ForegroundAppMonitor(this@MainActivity)
+                                                if (!appMonitor.hasUsageAccessPermission()) {
+                                                    try {
+                                                        appMonitor.openUsageAccessSettings()
+                                                    } catch (e: Exception) {
+                                                        e.printStackTrace()
+                                                    }
+                                                }
+                                                navController.navigate("home") {
+                                                    popUpTo("permission_setup_intro") { inclusive = true }
+                                                }
+                                            },
+                                            onNotNowClick = {
+                                                navController.navigate("home") {
+                                                    popUpTo("permission_setup_intro") { inclusive = true }
+                                                }
+                                            },
+                                            onNavigateBack = {
+                                                navController.popBackStack()
+                                            }
+                                        )
+                                    }
+
                                     composable("home") {
-                                        // Execute permission asking & ad sequence ONLY when Home Screen mounts
                                         LaunchedEffect(Unit) {
-                                            triggerHomeScreenPermissionsAndAds()
+                                            val hasCamera = ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+                                            val hasOverlay = Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this@MainActivity)
+                                            val hasUsageAccess = ForegroundAppMonitor(this@MainActivity).hasUsageAccessPermission()
+                                            val allGranted = hasCamera && hasOverlay && hasUsageAccess
+
+                                            if (allGranted) {
+                                                com.app.privacyscreendisplay.core.service.PrivacyGuardService.startService(applicationContext)
+                                                if (pendingAutoEnableProtection) {
+                                                    pendingAutoEnableProtection = false
+                                                    homeViewModel.enableProtection()
+                                                }
+                                            }
+
+                                            (application as? PrivacyGuardApplication)?.appOpenAdManager?.let { manager ->
+                                                appOpenAdManager = manager
+                                                manager.isAllowedToShowAd = true
+                                                manager.showAdIfAvailable(this@MainActivity)
+                                            }
                                         }
 
                                         HomeScreen(
@@ -147,7 +291,15 @@ class MainActivity : ComponentActivity() {
                                                 toastState.show("Opening Activity Log...", ToastType.INFO)
                                             },
                                             onNavigateToPremium = {
-                                                toastState.show("Opening Google Play Premium Billing...", ToastType.INFO)
+                                                if (navController.currentDestination?.route != "premium_paywall") {
+                                                    navController.navigate("premium_paywall") {
+                                                        launchSingleTop = true
+                                                    }
+                                                }
+                                            },
+                                            onNavigateToPermission = { route ->
+                                                pendingAutoEnableProtection = true
+                                                navController.navigate(route)
                                             }
                                         )
                                     }
@@ -159,7 +311,22 @@ class MainActivity : ComponentActivity() {
                                                 navController.popBackStack()
                                             },
                                             onNavigateToPremium = {
-                                                toastState.show("Opening Premium Subscription Paywall...", ToastType.INFO)
+                                                if (navController.currentDestination?.route != "premium_paywall") {
+                                                    navController.navigate("premium_paywall") {
+                                                        launchSingleTop = true
+                                                    }
+                                                }
+                                            }
+                                        )
+                                    }
+
+                                    composable("premium_paywall") {
+                                        PremiumPaywallScreen(
+                                            onNavigateBack = {
+                                                navController.popBackStack()
+                                            },
+                                            onPremiumActivated = {
+                                                // Premium activated state updated
                                             }
                                         )
                                     }
@@ -175,48 +342,16 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * Executes required permissions requests followed by the App Open Ad sequence.
-     * Guaranteed to run ONLY when the user reaches the Home Screen (after Onboarding).
-     */
-    private fun triggerHomeScreenPermissionsAndAds() {
-        checkAndRequestRequiredPermissions()
+    private fun getNextMissingPermissionRoute(): String? {
+        val hasCamera = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        if (!hasCamera) return "permission_camera"
 
-        (application as? PrivacyGuardApplication)?.appOpenAdManager?.let { manager ->
-            appOpenAdManager = manager
-            manager.showAdIfAvailable(this@MainActivity)
-        }
-    }
+        val hasOverlay = Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)
+        if (!hasOverlay) return "permission_overlay"
 
-    private fun checkAndRequestRequiredPermissions() {
-        // 1. Camera Permission
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-        } else {
-            com.app.privacyscreendisplay.core.service.PrivacyGuardService.startService(applicationContext)
-        }
+        val hasUsageAccess = ForegroundAppMonitor(this).hasUsageAccessPermission()
+        if (!hasUsageAccess) return "permission_usage_access"
 
-        // 2. System Overlay Window Permission
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
-            try {
-                val intent = Intent(
-                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    Uri.parse("package:$packageName")
-                )
-                startActivity(intent)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-
-        // 3. Usage Access Permission for Foreground App Scoping
-        val appMonitor = ForegroundAppMonitor(this)
-        if (!appMonitor.hasUsageAccessPermission()) {
-            try {
-                appMonitor.openUsageAccessSettings()
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
+        return null
     }
 }

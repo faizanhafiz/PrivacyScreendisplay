@@ -11,11 +11,21 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.app.privacyscreendisplay.protectedapps.domain.model.ProtectedApp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flow
 import java.util.Locale
 
 private val Context.protectedAppsDataStore: DataStore<Preferences> by preferencesDataStore(name = "protected_apps_preferences")
+
+private val tickerFlow: Flow<Unit> = flow {
+    while (true) {
+        emit(Unit)
+        delay(2000L)
+    }
+}
 
 /**
  * Local Data Source managing persistent protected applications via Jetpack DataStore.
@@ -25,22 +35,37 @@ class ProtectedAppsLocalDataSource(
     private val context: Context
 ) {
     private val KEY_PROTECTED_PACKAGES = stringSetPreferencesKey("protected_package_names")
+    private val KEY_PROTECTED_PACKAGES_ORDER = stringPreferencesKey("protected_packages_order")
 
     /**
-     * Observes protected apps from DataStore.
-     * Automatically filters out and cleans up any packages that were uninstalled from the device.
+     * Observes protected apps from DataStore in exact insertion order.
+     * Automatically prunes excess apps down to free limit (2 apps) when premium expires.
      */
     fun getProtectedApps(): Flow<List<ProtectedApp>> {
-        return context.protectedAppsDataStore.data.map { prefs ->
-            val savedPackages = prefs[KEY_PROTECTED_PACKAGES] ?: emptySet()
-            if (savedPackages.isEmpty()) {
+        return combine(
+            context.protectedAppsDataStore.data,
+            tickerFlow
+        ) { prefs, _ ->
+            val savedSet = prefs[KEY_PROTECTED_PACKAGES] ?: emptySet()
+            val orderString = prefs[KEY_PROTECTED_PACKAGES_ORDER] ?: ""
+
+            val orderedList = if (orderString.isNotBlank()) {
+                val listFromOrder = orderString.split(",").filter { it.isNotBlank() && savedSet.contains(it) }
+                // Include any package in set that wasn't in order string
+                val missingFromOrder = savedSet.filter { !listFromOrder.contains(it) }
+                listFromOrder + missingFromOrder
+            } else {
+                savedSet.toList()
+            }
+
+            if (orderedList.isEmpty()) {
                 emptyList()
             } else {
                 val pm = context.packageManager
                 val validApps = mutableListOf<ProtectedApp>()
                 val uninstalledPackages = mutableSetOf<String>()
 
-                for (pkg in savedPackages) {
+                for (pkg in orderedList) {
                     if (isPackageInstalled(pm, pkg)) {
                         val savedLabel = prefs[stringPreferencesKey("label_$pkg")]
                         val savedCategory = prefs[stringPreferencesKey("category_$pkg")]
@@ -66,15 +91,33 @@ class ProtectedAppsLocalDataSource(
                     pruneUninstalledPackages(uninstalledPackages)
                 }
 
-                validApps
+                // If premium is NOT active and apps count exceeds free limit (2), trim excess apps
+                val isPremiumActive = com.app.privacyscreendisplay.core.ads.AdConfig.isPremiumUser
+                val maxFreeLimit = 2
+
+                if (!isPremiumActive && validApps.size > maxFreeLimit) {
+                    val allowedApps = validApps.take(maxFreeLimit)
+                    val excessApps = validApps.drop(maxFreeLimit).map { it.packageName }
+                    pruneUninstalledPackages(excessApps.toSet())
+                    allowedApps
+                } else {
+                    validApps
+                }
             }
-        }
+        }.distinctUntilChanged()
     }
 
     suspend fun addProtectedApp(app: ProtectedApp) {
         context.protectedAppsDataStore.edit { prefs ->
-            val current = prefs[KEY_PROTECTED_PACKAGES] ?: emptySet()
-            prefs[KEY_PROTECTED_PACKAGES] = current + app.packageName
+            val currentSet = prefs[KEY_PROTECTED_PACKAGES] ?: emptySet()
+            val orderString = prefs[KEY_PROTECTED_PACKAGES_ORDER] ?: ""
+            val currentOrder = if (orderString.isNotBlank()) orderString.split(",").filter { it.isNotBlank() } else emptyList()
+
+            val newSet = currentSet + app.packageName
+            val newOrder = if (!currentOrder.contains(app.packageName)) currentOrder + app.packageName else currentOrder
+
+            prefs[KEY_PROTECTED_PACKAGES] = newSet
+            prefs[KEY_PROTECTED_PACKAGES_ORDER] = newOrder.joinToString(",")
             prefs[stringPreferencesKey("label_${app.packageName}")] = app.appName
             prefs[stringPreferencesKey("category_${app.packageName}")] = app.categoryName
         }
@@ -82,8 +125,15 @@ class ProtectedAppsLocalDataSource(
 
     suspend fun removeProtectedApp(packageName: String) {
         context.protectedAppsDataStore.edit { prefs ->
-            val current = prefs[KEY_PROTECTED_PACKAGES] ?: emptySet()
-            prefs[KEY_PROTECTED_PACKAGES] = current - packageName
+            val currentSet = prefs[KEY_PROTECTED_PACKAGES] ?: emptySet()
+            val orderString = prefs[KEY_PROTECTED_PACKAGES_ORDER] ?: ""
+            val currentOrder = if (orderString.isNotBlank()) orderString.split(",").filter { it.isNotBlank() } else emptyList()
+
+            val newSet = currentSet - packageName
+            val newOrder = currentOrder - packageName
+
+            prefs[KEY_PROTECTED_PACKAGES] = newSet
+            prefs[KEY_PROTECTED_PACKAGES_ORDER] = newOrder.joinToString(",")
             prefs.remove(stringPreferencesKey("label_$packageName"))
             prefs.remove(stringPreferencesKey("category_$packageName"))
         }
@@ -92,8 +142,15 @@ class ProtectedAppsLocalDataSource(
     private suspend fun pruneUninstalledPackages(uninstalled: Set<String>) {
         try {
             context.protectedAppsDataStore.edit { prefs ->
-                val current = prefs[KEY_PROTECTED_PACKAGES] ?: emptySet()
-                prefs[KEY_PROTECTED_PACKAGES] = current - uninstalled
+                val currentSet = prefs[KEY_PROTECTED_PACKAGES] ?: emptySet()
+                val orderString = prefs[KEY_PROTECTED_PACKAGES_ORDER] ?: ""
+                val currentOrder = if (orderString.isNotBlank()) orderString.split(",").filter { it.isNotBlank() } else emptyList()
+
+                val newSet = currentSet - uninstalled
+                val newOrder = currentOrder - uninstalled
+
+                prefs[KEY_PROTECTED_PACKAGES] = newSet
+                prefs[KEY_PROTECTED_PACKAGES_ORDER] = newOrder.joinToString(",")
                 for (pkg in uninstalled) {
                     prefs.remove(stringPreferencesKey("label_$pkg"))
                     prefs.remove(stringPreferencesKey("category_$pkg"))

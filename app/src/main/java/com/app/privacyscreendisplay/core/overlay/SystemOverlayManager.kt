@@ -3,9 +3,14 @@ package com.app.privacyscreendisplay.core.overlay
 import android.content.Context
 import android.graphics.PixelFormat
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.WindowManager
+import android.widget.FrameLayout
 import androidx.compose.ui.platform.ComposeView
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
@@ -21,8 +26,10 @@ class SystemOverlayManager(
     private val context: Context
 ) {
     private val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-    private var overlayView: ComposeView? = null
-    private var isOverlayShowing = false
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var overlayView: FrameLayout? = null
+    private var overlayLifecycleOwner: OverlayLifecycleOwner? = null
+    @Volatile private var isOverlayShowing = false
 
     fun showOverlay(
         overlayStyle: OverlayStyle = OverlayStyle.BLUR,
@@ -30,70 +37,105 @@ class SystemOverlayManager(
     ) {
         if (isOverlayShowing) return
 
-        try {
-            val params = WindowManager.LayoutParams(
-                WindowManager.LayoutParams.MATCH_PARENT,
-                WindowManager.LayoutParams.MATCH_PARENT,
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                } else {
-                    @Suppress("DEPRECATION")
-                    WindowManager.LayoutParams.TYPE_PHONE
-                },
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                        WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-                PixelFormat.TRANSLUCENT
-            ).apply {
-                gravity = Gravity.CENTER
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    flags = flags or WindowManager.LayoutParams.FLAG_BLUR_BEHIND
-                    setBlurBehindRadius(80)
-                }
-            }
+        mainHandler.post {
+            if (isOverlayShowing || overlayView != null) return@post
 
-            val composeView = ComposeView(context).apply {
-                setContent {
-                    FullProtectionOverlay(
-                        isVisible = true,
-                        overlayStyle = overlayStyle,
-                        onDismiss = {
+            try {
+                val params = WindowManager.LayoutParams(
+                    WindowManager.LayoutParams.MATCH_PARENT,
+                    WindowManager.LayoutParams.MATCH_PARENT,
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                    } else {
+                        @Suppress("DEPRECATION")
+                        WindowManager.LayoutParams.TYPE_PHONE
+                    },
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                    PixelFormat.TRANSLUCENT
+                ).apply {
+                    gravity = Gravity.CENTER
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        flags = flags or WindowManager.LayoutParams.FLAG_BLUR_BEHIND
+                        setBlurBehindRadius(80)
+                    }
+                }
+
+                val composeView = ComposeView(context).apply {
+                    setContent {
+                        FullProtectionOverlay(
+                            isVisible = true,
+                            overlayStyle = overlayStyle,
+                            onDismiss = {
+                                hideOverlay()
+                                onDismiss()
+                            }
+                        )
+                    }
+                }
+
+                // Set required composition owners for ComposeView in WindowManager
+                val lifecycleOwner = OverlayLifecycleOwner()
+                lifecycleOwner.performRestore(null)
+                lifecycleOwner.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
+                lifecycleOwner.handleLifecycleEvent(Lifecycle.Event.ON_START)
+                lifecycleOwner.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+                overlayLifecycleOwner = lifecycleOwner
+
+                composeView.setViewTreeLifecycleOwner(lifecycleOwner)
+                composeView.setViewTreeViewModelStoreOwner(lifecycleOwner)
+                composeView.setViewTreeSavedStateRegistryOwner(lifecycleOwner)
+
+                val containerView = object : FrameLayout(context) {
+                    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+                        if (event.keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
                             hideOverlay()
                             onDismiss()
+                            return true
                         }
+                        return super.dispatchKeyEvent(event)
+                    }
+                }.apply {
+                    setViewTreeLifecycleOwner(lifecycleOwner)
+                    setViewTreeViewModelStoreOwner(lifecycleOwner)
+                    setViewTreeSavedStateRegistryOwner(lifecycleOwner)
+                    addView(
+                        composeView,
+                        FrameLayout.LayoutParams(
+                            FrameLayout.LayoutParams.MATCH_PARENT,
+                            FrameLayout.LayoutParams.MATCH_PARENT
+                        )
                     )
                 }
+
+                windowManager.addView(containerView, params)
+                overlayView = containerView
+                isOverlayShowing = true
+            } catch (e: Exception) {
+                e.printStackTrace()
+                isOverlayShowing = false
             }
-
-            // Set required composition owners for ComposeView in WindowManager
-            val lifecycleOwner = OverlayLifecycleOwner()
-            lifecycleOwner.performRestore(null)
-            lifecycleOwner.handleLifecycleEvent(androidx.lifecycle.Lifecycle.Event.ON_CREATE)
-            lifecycleOwner.handleLifecycleEvent(androidx.lifecycle.Lifecycle.Event.ON_START)
-            lifecycleOwner.handleLifecycleEvent(androidx.lifecycle.Lifecycle.Event.ON_RESUME)
-
-            composeView.setViewTreeLifecycleOwner(lifecycleOwner)
-            composeView.setViewTreeViewModelStoreOwner(lifecycleOwner)
-            composeView.setViewTreeSavedStateRegistryOwner(lifecycleOwner)
-
-            windowManager.addView(composeView, params)
-            overlayView = composeView
-            isOverlayShowing = true
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
     }
 
     fun hideOverlay() {
-        if (!isOverlayShowing || overlayView == null) return
+        if (!isOverlayShowing && overlayView == null) return
 
-        try {
-            windowManager.removeView(overlayView)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        } finally {
-            overlayView = null
-            isOverlayShowing = false
+        mainHandler.post {
+            val viewToRemove = overlayView ?: return@post
+            try {
+                overlayLifecycleOwner?.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
+                overlayLifecycleOwner?.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
+                overlayLifecycleOwner?.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+                windowManager.removeView(viewToRemove)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                overlayView = null
+                overlayLifecycleOwner = null
+                isOverlayShowing = false
+            }
         }
     }
 

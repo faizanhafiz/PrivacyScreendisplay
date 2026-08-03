@@ -84,12 +84,15 @@ class FaceDetectorEngine(
     }
 
     fun stopDetection() {
-        try {
-            cameraProvider?.unbindAll()
-            consecutiveMultipleFacesCount = 0
-            isCurrentlyAlerting = false
-        } catch (e: Exception) {
-            e.printStackTrace()
+        ContextCompat.getMainExecutor(context).execute {
+            try {
+                cameraProvider?.unbindAll()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                consecutiveMultipleFacesCount = 0
+                isCurrentlyAlerting = false
+            }
         }
     }
 
@@ -166,7 +169,15 @@ class FaceDetectorEngine(
 
     fun release() {
         stopDetection()
-        detector.close()
-        cameraExecutor.shutdown()
+        try {
+            detector.close()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        try {
+            cameraExecutor.shutdown()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }

@@ -10,7 +10,7 @@ object AdConfig {
 
     // Global premium status toggle - set to true to test Premium Mode across all screens
     @Volatile
-    var isPremiumUser: Boolean = true
+    var isPremiumUser: Boolean = false
 
     // Toggle this flag to switch between official Test IDs and Production IDs
     const val IS_TEST_MODE = true

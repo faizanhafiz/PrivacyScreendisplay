@@ -29,6 +29,12 @@ class AppOpenAdManager(
     private var currentActivity: Activity? = null
     private var loadTime: Long = 0
 
+    /**
+     * Controls whether App Open Ads are allowed to be shown.
+     * Set to true ONLY when user reaches the Home screen (suppressed during Onboarding/Wizard).
+     */
+    var isAllowedToShowAd: Boolean = false
+
     init {
         application.registerActivityLifecycleCallbacks(this)
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
@@ -116,6 +122,11 @@ class AppOpenAdManager(
     fun showAdIfAvailable(activity: Activity) {
         if (AdConfig.isPremiumUser) {
             Log.d(TAG, "User is Premium subscriber. App Open Ad suppressed.")
+            return
+        }
+
+        if (!isAllowedToShowAd) {
+            Log.d(TAG, "User has not reached Home screen yet. App Open Ad suppressed during onboarding/setup.")
             return
         }
 

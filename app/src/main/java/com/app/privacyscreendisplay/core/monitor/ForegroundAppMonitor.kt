@@ -76,11 +76,6 @@ class ForegroundAppMonitor(
             if (eventType == UsageEvents.Event.MOVE_TO_FOREGROUND ||
                 (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && eventType == UsageEvents.Event.ACTIVITY_RESUMED)) {
                 lastKnownForegroundPackage = event.packageName
-            } else if (eventType == UsageEvents.Event.MOVE_TO_BACKGROUND ||
-                (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && eventType == UsageEvents.Event.ACTIVITY_PAUSED)) {
-                if (lastKnownForegroundPackage == event.packageName) {
-                    lastKnownForegroundPackage = null
-                }
             }
         }
 

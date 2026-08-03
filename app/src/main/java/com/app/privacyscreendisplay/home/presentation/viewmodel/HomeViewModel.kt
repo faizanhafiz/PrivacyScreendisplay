@@ -82,6 +82,15 @@ class HomeViewModel(
         }
     }
 
+    fun enableProtection() {
+        viewModelScope.launch {
+            if (!_uiState.value.protectionStatus.isProtectionActive) {
+                toggleProtectionUseCase(false)
+                _uiEvent.emit(HomeUiEvent.ShowToast("Privacy Guard Activated"))
+            }
+        }
+    }
+
     fun onOverlayStyleSelected(style: OverlayStyle) {
         viewModelScope.launch {
             if (style.isPremium && !_uiState.value.protectionStatus.isPremiumSubscriber) {

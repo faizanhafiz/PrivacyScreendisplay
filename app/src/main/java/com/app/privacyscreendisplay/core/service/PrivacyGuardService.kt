@@ -27,6 +27,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
+import com.app.privacyscreendisplay.home.domain.model.SensitivityLevel
+
 /**
  * Android 14+ Compliant Foreground Service for real-time Privacy Guard protection.
  * Runs CameraX + ML Kit face detection ONLY when a user-added protected app (WhatsApp, PhonePe, Amazon, etc.)
@@ -44,6 +46,7 @@ class PrivacyGuardService : LifecycleService() {
     private var protectedPackages = setOf<String>()
     private var isProtectionActive = false
     private var selectedOverlayStyle = OverlayStyle.BLUR
+    private var selectedSensitivity = SensitivityLevel.MEDIUM
     private var isCameraArmed = false
 
     companion object {
@@ -163,6 +166,7 @@ class PrivacyGuardService : LifecycleService() {
             ) { status, apps ->
                 isProtectionActive = status.isProtectionActive
                 selectedOverlayStyle = status.selectedOverlayStyle
+                selectedSensitivity = status.sensitivity
                 protectedPackages = apps.map { it.packageName }.toSet()
             }.collect {
                 updateMonitoringState()
@@ -174,6 +178,10 @@ class PrivacyGuardService : LifecycleService() {
         monitorJob?.cancel()
 
         if (!isProtectionActive || protectedPackages.isEmpty()) {
+            if (overlayManager.isShowing()) {
+                overlayManager.hideOverlay()
+                faceDetector.resetAlert()
+            }
             disarmCamera()
             return
         }
@@ -182,13 +190,33 @@ class PrivacyGuardService : LifecycleService() {
             while (true) {
                 val isProtectedAppActive = appMonitor.isProtectedAppInForeground(protectedPackages)
 
-                if (isProtectedAppActive && !isCameraArmed) {
-                    armCamera()
-                } else if (!isProtectedAppActive && isCameraArmed) {
-                    disarmCamera()
-                }
+                if (isProtectedAppActive) {
+                    if (selectedSensitivity == SensitivityLevel.HIGH) {
+                        if (!isCameraArmed) armCamera()
+                        delay(1000L)
+                    } else {
+                        // Eco & Medium modes: Burst scan then disarm to turn off green camera status dot
+                        armCamera()
+                        delay(selectedSensitivity.scanDurationMs)
 
-                delay(1800L) // Poll foreground app state every 1.8s
+                        if (!overlayManager.isShowing()) {
+                            disarmCamera() // Camera disarms -> Green dot turns OFF!
+                            delay(selectedSensitivity.pauseDurationMs)
+                        } else {
+                            delay(1000L)
+                        }
+                    }
+                } else {
+                    // Automatically hide overlay when protected app is closed or exits foreground
+                    if (overlayManager.isShowing()) {
+                        overlayManager.hideOverlay()
+                        faceDetector.resetAlert()
+                    }
+                    if (isCameraArmed) {
+                        disarmCamera()
+                    }
+                    delay(1800L)
+                }
             }
         }
     }
@@ -208,7 +236,10 @@ class PrivacyGuardService : LifecycleService() {
         try {
             faceDetector.stopDetection()
             isCameraArmed = false
-            // Overlay remains visible until the user manually clicks the Dismiss button inside FullProtectionOverlay
+            if (overlayManager.isShowing()) {
+                overlayManager.hideOverlay()
+                faceDetector.resetAlert()
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
