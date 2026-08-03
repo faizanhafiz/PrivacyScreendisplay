@@ -9,6 +9,8 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.app.privacyscreendisplay.activitylog.data.datasource.ActivityLogLocalDataSource
+import com.app.privacyscreendisplay.activitylog.domain.model.ActivityLogItem
 import com.app.privacyscreendisplay.core.ads.AdConfig
 import com.app.privacyscreendisplay.home.domain.model.OverlayStyle
 import com.app.privacyscreendisplay.home.domain.model.ProtectionStatus
@@ -53,8 +55,9 @@ class PrivacyGuardLocalDataSource(
                 throw exception
             }
         },
-        tickerFlow
-    ) { preferences, _ ->
+        tickerFlow,
+        ActivityLogLocalDataSource(context).getActivityLogs()
+    ) { preferences: Preferences, _: Unit, logs: List<ActivityLogItem> ->
         val isActivePref = preferences[Keys.PROTECTION_ACTIVE] ?: true
         val styleName = preferences[Keys.OVERLAY_STYLE] ?: OverlayStyle.BLUR.name
         val sensitivityName = preferences[Keys.SENSITIVITY_LEVEL] ?: SensitivityLevel.MEDIUM.name
@@ -88,13 +91,16 @@ class PrivacyGuardLocalDataSource(
         // Sync global AdConfig state with effective subscription entitlement
         AdConfig.isPremiumUser = isPremiumEffective
 
+        val todayDetectionsCount = logs.count { it.dateGroup == "Today" }
+
         ProtectionStatus(
             isProtectionActive = isProtectionActiveEffective,
             selectedOverlayStyle = overlayStyle,
             sensitivity = sensitivity,
             protectedAppsCount = 0,
-            detectionsToday = 4,
-            isPremiumSubscriber = isPremiumEffective
+            detectionsToday = todayDetectionsCount,
+            isPremiumSubscriber = isPremiumEffective,
+            recentLogs = logs
         )
     }.distinctUntilChanged()
 

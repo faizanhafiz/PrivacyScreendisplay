@@ -315,6 +315,7 @@ fun HomeScreenContent(
                 // Activity Timeline Log Summary Card
                 ActivityTimelinePreviewCard(
                     detectionsTodayCount = status.detectionsToday,
+                    recentLogs = status.recentLogs,
                     onViewLogClick = onActivityLogClick
                 )
 

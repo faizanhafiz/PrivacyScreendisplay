@@ -1,7 +1,6 @@
 package com.app.privacyscreendisplay.home.presentation.ui.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,6 +14,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -27,8 +27,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.app.privacyscreendisplay.activitylog.domain.model.ActivityLogItem
 
 /**
  * Summary card presenting real-time AI face detection history and event activity log.
@@ -36,6 +38,7 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun ActivityTimelinePreviewCard(
     detectionsTodayCount: Int,
+    recentLogs: List<ActivityLogItem>,
     onViewLogClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -81,7 +84,7 @@ fun ActivityTimelinePreviewCard(
                     )
 
                     Text(
-                        text = "$detectionsTodayCount Shoulder Surfer Detections",
+                        text = if (detectionsTodayCount == 1) "1 Shoulder Surfer Detection" else "$detectionsTodayCount Shoulder Surfer Detections",
                         fontSize = 12.sp,
                         color = Color(0xFF0284C7),
                         fontWeight = FontWeight.SemiBold
@@ -91,21 +94,42 @@ fun ActivityTimelinePreviewCard(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Sample Log item 1
-            TimelineLogRow(
-                timeText = "14:22",
-                appNameText = "WhatsApp",
-                actionText = "Blur Overlay Triggered"
-            )
+            if (recentLogs.isEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(MaterialTheme.colorScheme.background.copy(alpha = 0.6f))
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Shield,
+                        contentDescription = null,
+                        tint = Color(0xFF047857),
+                        modifier = Modifier.size(16.dp)
+                    )
 
-            Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
 
-            // Sample Log item 2
-            TimelineLogRow(
-                timeText = "11:05",
-                appNameText = "Banking & Finance",
-                actionText = "Secondary Face Blocked"
-            )
+                    Text(
+                        text = "No detections recorded yet. Monitoring active apps.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                recentLogs.take(2).forEachIndexed { index, item ->
+                    if (index > 0) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    TimelineLogRow(
+                        timeText = item.formattedTime,
+                        appNameText = item.appName,
+                        actionText = item.actionText
+                    )
+                }
+            }
         }
     }
 }
@@ -137,7 +161,9 @@ private fun TimelineLogRow(
             text = appNameText,
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground
+            color = MaterialTheme.colorScheme.onBackground,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
 
         Spacer(modifier = Modifier.width(6.dp))
@@ -146,8 +172,12 @@ private fun TimelineLogRow(
             text = "• $actionText",
             fontSize = 11.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
+
+        Spacer(modifier = Modifier.width(4.dp))
 
         Text(
             text = timeText,

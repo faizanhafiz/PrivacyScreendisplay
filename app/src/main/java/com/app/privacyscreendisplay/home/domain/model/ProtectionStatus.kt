@@ -15,6 +15,7 @@ data class ProtectionStatus(
     val selectedOverlayStyle: OverlayStyle = OverlayStyle.BLUR,
     val sensitivity: SensitivityLevel = SensitivityLevel.MEDIUM,
     val protectedAppsCount: Int = 12,
-    val detectionsToday: Int = 3,
-    val isPremiumSubscriber: Boolean = false
+    val detectionsToday: Int = 0,
+    val isPremiumSubscriber: Boolean = false,
+    val recentLogs: List<com.app.privacyscreendisplay.activitylog.domain.model.ActivityLogItem> = emptyList()
 )

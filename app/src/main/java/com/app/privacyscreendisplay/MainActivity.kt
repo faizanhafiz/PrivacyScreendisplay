@@ -44,6 +44,8 @@ import com.app.privacyscreendisplay.setup.presentation.ui.PermissionCameraScreen
 import com.app.privacyscreendisplay.setup.presentation.ui.PermissionOverlayScreen
 import com.app.privacyscreendisplay.setup.presentation.ui.PermissionSetupIntroScreen
 import com.app.privacyscreendisplay.setup.presentation.ui.PermissionUsageAccessScreen
+import com.app.privacyscreendisplay.activitylog.presentation.ui.ActivityLogScreen
+import com.app.privacyscreendisplay.activitylog.presentation.viewmodel.ActivityLogViewModel
 import com.app.privacyscreendisplay.ui.theme.PrivacyScreendisplayTheme
 
 class MainActivity : ComponentActivity() {
@@ -51,6 +53,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var onboardingViewModel: OnboardingViewModel
     private lateinit var homeViewModel: HomeViewModel
     private lateinit var protectedAppsViewModel: ProtectedAppsViewModel
+    private lateinit var activityLogViewModel: ActivityLogViewModel
     private var appOpenAdManager: AppOpenAdManager? = null
     private var pendingAutoEnableProtection = false
 
@@ -96,6 +99,11 @@ class MainActivity : ComponentActivity() {
             updateOverlayStyleUseCase = HomeModule.provideUpdateOverlayStyleUseCase(homeRepo),
             updateSensitivityUseCase = HomeModule.provideUpdateSensitivityUseCase(homeRepo)
         )
+
+        // Activity Log DI & ViewModel
+        val activityLogDS = com.app.privacyscreendisplay.activitylog.data.datasource.ActivityLogLocalDataSource(applicationContext)
+        val activityLogRepo = com.app.privacyscreendisplay.activitylog.data.repository.ActivityLogRepositoryImpl(activityLogDS)
+        activityLogViewModel = ActivityLogViewModel(activityLogRepo)
 
         setContent {
             PrivacyScreendisplayTheme {
@@ -288,7 +296,11 @@ class MainActivity : ComponentActivity() {
                                                 }
                                             },
                                             onNavigateToActivityLog = {
-                                                toastState.show("Opening Activity Log...", ToastType.INFO)
+                                                if (navController.currentDestination?.route != "activity_log") {
+                                                    navController.navigate("activity_log") {
+                                                        launchSingleTop = true
+                                                    }
+                                                }
                                             },
                                             onNavigateToPremium = {
                                                 if (navController.currentDestination?.route != "premium_paywall") {
@@ -300,6 +312,22 @@ class MainActivity : ComponentActivity() {
                                             onNavigateToPermission = { route ->
                                                 pendingAutoEnableProtection = true
                                                 navController.navigate(route)
+                                            }
+                                        )
+                                    }
+
+                                    composable("activity_log") {
+                                        ActivityLogScreen(
+                                            viewModel = activityLogViewModel,
+                                            onNavigateBack = {
+                                                navController.popBackStack()
+                                            },
+                                            onNavigateToPremium = {
+                                                if (navController.currentDestination?.route != "premium_paywall") {
+                                                    navController.navigate("premium_paywall") {
+                                                        launchSingleTop = true
+                                                    }
+                                                }
                                             }
                                         )
                                     }

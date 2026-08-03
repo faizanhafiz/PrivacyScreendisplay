@@ -41,6 +41,7 @@ class PrivacyGuardService : LifecycleService() {
     private lateinit var faceDetector: FaceDetectorEngine
     private lateinit var privacyGuardDS: PrivacyGuardLocalDataSource
     private lateinit var protectedAppsDS: ProtectedAppsLocalDataSource
+    private lateinit var activityLogDS: com.app.privacyscreendisplay.activitylog.data.datasource.ActivityLogLocalDataSource
 
     private var monitorJob: Job? = null
     private var protectedPackages = setOf<String>()
@@ -75,11 +76,31 @@ class PrivacyGuardService : LifecycleService() {
         appMonitor = ForegroundAppMonitor(this)
         privacyGuardDS = PrivacyGuardLocalDataSource(this)
         protectedAppsDS = ProtectedAppsLocalDataSource(this)
+        activityLogDS = com.app.privacyscreendisplay.activitylog.data.datasource.ActivityLogLocalDataSource(this)
 
         faceDetector = FaceDetectorEngine(
             context = this,
             onShoulderSurfingDetected = {
                 if (isProtectionActive) {
+                    val currentPkg = appMonitor.getForegroundPackageName() ?: "com.app.privacyscreendisplay"
+                    val appName = try {
+                        val pm = packageManager
+                        val appInfo = pm.getApplicationInfo(currentPkg, 0)
+                        pm.getApplicationLabel(appInfo).toString()
+                    } catch (_: Exception) {
+                        "Protected App"
+                    }
+
+                    lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        activityLogDS.logDetectionEvent(
+                            packageName = currentPkg,
+                            appName = appName,
+                            extraFacesCount = 1,
+                            durationSeconds = 4,
+                            actionText = "Shoulder Surfer Blocked"
+                        )
+                    }
+
                     overlayManager.showOverlay(
                         overlayStyle = selectedOverlayStyle,
                         onDismiss = {

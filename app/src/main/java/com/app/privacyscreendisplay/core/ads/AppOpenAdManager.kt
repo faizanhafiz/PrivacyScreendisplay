@@ -30,6 +30,12 @@ class AppOpenAdManager(
     private var loadTime: Long = 0
 
     /**
+     * Track whether an App Open Ad has already been presented for the current app session.
+     * Prevents duplicate ad popups during internal screen navigation (e.g. Home -> Activity Log -> Home).
+     */
+    private var hasShownAdThisSession = false
+
+    /**
      * Controls whether App Open Ads are allowed to be shown.
      * Set to true ONLY when user reaches the Home screen (suppressed during Onboarding/Wizard).
      */
@@ -130,6 +136,11 @@ class AppOpenAdManager(
             return
         }
 
+        if (hasShownAdThisSession) {
+            Log.d(TAG, "App Open Ad already shown for this launch session. Suppressed during internal navigation.")
+            return
+        }
+
         currentActivity = activity
         isPendingShowOnLoad = true
 
@@ -169,13 +180,21 @@ class AppOpenAdManager(
             override fun onAdShowedFullScreenContent() {
                 isShowingAd = true
                 isPendingShowOnLoad = false
+                hasShownAdThisSession = true
                 Log.d(TAG, "App Open Ad showing full screen.")
             }
         }
 
         isShowingAd = true
         isPendingShowOnLoad = false
+        hasShownAdThisSession = true
         appOpenAd?.show(activity)
+    }
+
+    override fun onStop(owner: LifecycleOwner) {
+        super.onStop(owner)
+        Log.d(TAG, "App backgrounded. Resetting session ad presentation flag.")
+        hasShownAdThisSession = false
     }
 
     override fun onStart(owner: LifecycleOwner) {
