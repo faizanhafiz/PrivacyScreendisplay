@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.Flow
 interface ActivityLogRepository {
     fun getActivityLogs(): Flow<List<ActivityLogItem>>
     suspend fun clearActivityLogs()
+    suspend fun unblurLogItem(logId: String)
 }
 
 class ActivityLogRepositoryImpl(
@@ -19,5 +20,9 @@ class ActivityLogRepositoryImpl(
 
     override suspend fun clearActivityLogs() {
         localDataSource.clearActivityLogs()
+    }
+
+    override suspend fun unblurLogItem(logId: String) {
+        localDataSource.unblurLogItem(logId)
     }
 }

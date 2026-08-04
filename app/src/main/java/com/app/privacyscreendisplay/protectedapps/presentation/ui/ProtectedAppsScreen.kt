@@ -63,6 +63,7 @@ fun ProtectedAppsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val toastState = LocalToastState.current
+    val context = LocalContext.current
     var showAppPickerDialog by remember { mutableStateOf(false) }
     var appPendingRemoval by remember { mutableStateOf<ProtectedApp?>(null) }
 
@@ -119,9 +120,14 @@ fun ProtectedAppsScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.onRemoveAppClicked(app.packageName)
-                        toastState.show("Removed ${app.appName} from protected apps", ToastType.WARNING)
+                        val pkg = app.packageName
+                        val name = app.appName
                         appPendingRemoval = null
+                        viewModel.onRemoveAppClicked(pkg)
+                        toastState.show("Removed $name from protected apps", ToastType.WARNING)
+                        if (!com.app.privacyscreendisplay.core.ads.AdConfig.isPremiumUser) {
+                            com.app.privacyscreendisplay.core.ads.InterstitialAdManager.showAd(context) { }
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
                     shape = RoundedCornerShape(12.dp)
@@ -147,6 +153,9 @@ fun ProtectedAppsScreen(
         onAppSelected = { app ->
             viewModel.onAddAppClicked(app)
             toastState.show("Added ${app.appName} to protected apps", ToastType.SUCCESS)
+            if (!com.app.privacyscreendisplay.core.ads.AdConfig.isPremiumUser) {
+                com.app.privacyscreendisplay.core.ads.InterstitialAdManager.showAd(context) {}
+            }
         }
     )
 }

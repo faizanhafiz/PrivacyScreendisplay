@@ -58,4 +58,10 @@ class ActivityLogViewModel(
             repository.clearActivityLogs()
         }
     }
+
+    fun unblurLogItem(logId: String) {
+        viewModelScope.launch {
+            repository.unblurLogItem(logId)
+        }
+    }
 }

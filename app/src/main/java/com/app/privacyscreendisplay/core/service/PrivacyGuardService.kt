@@ -80,7 +80,7 @@ class PrivacyGuardService : LifecycleService() {
 
         faceDetector = FaceDetectorEngine(
             context = this,
-            onShoulderSurfingDetected = {
+            onShoulderSurfingDetected = { snapshotPath ->
                 if (isProtectionActive) {
                     val currentPkg = appMonitor.getForegroundPackageName() ?: "com.app.privacyscreendisplay"
                     val appName = try {
@@ -97,7 +97,8 @@ class PrivacyGuardService : LifecycleService() {
                             appName = appName,
                             extraFacesCount = 1,
                             durationSeconds = 4,
-                            actionText = "Shoulder Surfer Blocked"
+                            actionText = "Shoulder Surfer Blocked",
+                            imagePath = snapshotPath
                         )
                     }
 

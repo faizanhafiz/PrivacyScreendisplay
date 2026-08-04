@@ -14,6 +14,11 @@ import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetectorOptions
 import java.util.concurrent.Executors
 
+import android.graphics.Bitmap
+import android.graphics.Matrix
+import java.io.File
+import java.io.FileOutputStream
+
 /**
  * CameraX + ML Kit On-Device Face Detection Engine.
  * Features frame-rate throttling (~3 FPS) for battery efficiency, fast on-device face counting,
@@ -21,7 +26,7 @@ import java.util.concurrent.Executors
  */
 class FaceDetectorEngine(
     private val context: Context,
-    private val onShoulderSurfingDetected: () -> Unit,
+    private val onShoulderSurfingDetected: (snapshotPath: String?) -> Unit,
     private val onShoulderSurfingCleared: () -> Unit
 ) {
     private val cameraExecutor = Executors.newSingleThreadExecutor()
@@ -133,12 +138,12 @@ class FaceDetectorEngine(
                 .addOnSuccessListener { faces ->
                     val faceCount = faces.size
 
-                    // Testing threshold: trigger on 1+ detected face (revert to 2+ for production)
                     if (faceCount >= 1) {
                         consecutiveMultipleFacesCount++
                         if (consecutiveMultipleFacesCount >= DEBOUNCE_THRESHOLD && !isCurrentlyAlerting) {
                             isCurrentlyAlerting = true
-                            onShoulderSurfingDetected()
+                            val snapshotPath = saveFrameSnapshot(imageProxy)
+                            onShoulderSurfingDetected(snapshotPath)
                         }
                     } else {
                         // Reset consecutive count when face leaves
@@ -154,6 +159,31 @@ class FaceDetectorEngine(
         } catch (e: Exception) {
             e.printStackTrace()
             imageProxy.close()
+        }
+    }
+
+    private fun saveFrameSnapshot(imageProxy: ImageProxy): String? {
+        return try {
+            val dir = File(context.filesDir, "intruder_photos")
+            if (!dir.exists()) dir.mkdirs()
+            val file = File(dir, "snapshot_${System.currentTimeMillis()}.jpg")
+
+            val bitmap = imageProxy.toBitmap()
+            val rotatedBitmap = if (imageProxy.imageInfo.rotationDegrees != 0) {
+                val matrix = Matrix()
+                matrix.postRotate(imageProxy.imageInfo.rotationDegrees.toFloat())
+                Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+            } else {
+                bitmap
+            }
+
+            FileOutputStream(file).use { out ->
+                rotatedBitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
+            }
+            file.absolutePath
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
         }
     }
 

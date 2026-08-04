@@ -50,7 +50,8 @@ class ActivityLogLocalDataSource(
         appName: String,
         extraFacesCount: Int = 1,
         durationSeconds: Int = 4,
-        actionText: String = "Shoulder Surfer Blocked"
+        actionText: String = "Shoulder Surfer Blocked",
+        imagePath: String? = null
     ) {
         context.activityLogDataStore.edit { prefs ->
             val existingJson = prefs[KEY_LOGS_JSON]
@@ -70,7 +71,9 @@ class ActivityLogLocalDataSource(
                 dateGroup = formatDateGroup(timestamp),
                 extraFacesCount = extraFacesCount,
                 durationSeconds = durationSeconds,
-                actionText = actionText
+                actionText = actionText,
+                imagePath = imagePath,
+                isUnblurred = false
             )
 
             // Add new log to the top of the list
@@ -78,6 +81,22 @@ class ActivityLogLocalDataSource(
 
             prefs[KEY_LOGS_JSON] = serializeLogsJson(currentLogs)
             prefs[KEY_INITIALIZED] = "true"
+        }
+    }
+
+    suspend fun unblurLogItem(logId: String) {
+        context.activityLogDataStore.edit { prefs ->
+            val existingJson = prefs[KEY_LOGS_JSON]
+            if (!existingJson.isNullOrEmpty()) {
+                val currentLogs = parseLogsJson(existingJson).map { item ->
+                    if (item.id == logId) {
+                        item.copy(isUnblurred = true)
+                    } else {
+                        item
+                    }
+                }
+                prefs[KEY_LOGS_JSON] = serializeLogsJson(currentLogs)
+            }
         }
     }
 
@@ -108,7 +127,9 @@ class ActivityLogLocalDataSource(
                         dateGroup = formatDateGroup(timestamp),
                         extraFacesCount = obj.optInt("extraFacesCount", 1),
                         durationSeconds = obj.optInt("durationSeconds", 4),
-                        actionText = obj.optString("actionText", "Shoulder Surfer Blocked")
+                        actionText = obj.optString("actionText", "Shoulder Surfer Blocked"),
+                        imagePath = if (obj.has("imagePath")) obj.getString("imagePath") else null,
+                        isUnblurred = obj.optBoolean("isUnblurred", false)
                     )
                 )
             }
@@ -129,6 +150,8 @@ class ActivityLogLocalDataSource(
             obj.put("extraFacesCount", item.extraFacesCount)
             obj.put("durationSeconds", item.durationSeconds)
             obj.put("actionText", item.actionText)
+            item.imagePath?.let { obj.put("imagePath", it) }
+            obj.put("isUnblurred", item.isUnblurred)
             jsonArray.put(obj)
         }
         return jsonArray.toString()
