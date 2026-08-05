@@ -1,10 +1,8 @@
 package com.app.privacyscreendisplay.core.ads
 
 import android.view.Gravity
-import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.compose.animation.AnimatedVisibility
@@ -14,7 +12,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -39,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -51,8 +49,8 @@ import com.google.android.gms.ads.nativead.NativeAd
 import com.google.android.gms.ads.nativead.NativeAdView
 
 /**
- * High-Converting Interactive Bottom-Sheet Modal Ad Dialog with precise pixel alignment,
- * navigation bar insets, and high-contrast orange action CTA button.
+ * High-Converting Interactive Bottom-Sheet Modal Ad Dialog for Home Screen.
+ * NOTE: Displays ONLY when the Native Ad has loaded successfully; otherwise remains hidden.
  */
 @Composable
 fun AdMobBottomSheetAdDialog(
@@ -63,15 +61,36 @@ fun AdMobBottomSheetAdDialog(
 ) {
     if (!isVisible || AdConfig.isPremiumUser) return
 
+    val context = LocalContext.current
     var nativeAdState by remember { mutableStateOf<NativeAd?>(null) }
-    var isLoading by remember { mutableStateOf(true) }
+    var isAdLoadedSuccessfully by remember { mutableStateOf(false) }
 
-    DisposableEffect(Unit) {
+    DisposableEffect(adUnitId) {
+        val adLoader = AdLoader.Builder(context, adUnitId)
+            .forNativeAd { loadedAd ->
+                nativeAdState = loadedAd
+                isAdLoadedSuccessfully = true
+            }
+            .withAdListener(object : AdListener() {
+                override fun onAdFailedToLoad(error: LoadAdError) {
+                    super.onAdFailedToLoad(error)
+                    isAdLoadedSuccessfully = false
+                    onDismiss() // Dismiss dialog if ad fails to load - DO NOT show empty dialog
+                }
+            })
+            .build()
+
+        adLoader.loadAd(AdManager.buildAdRequest())
+
         onDispose {
             nativeAdState?.destroy()
             nativeAdState = null
         }
     }
+
+    // ONLY SHOW DIALOG IF AD LOADED SUCCESSFULLY!
+    val activeAd = nativeAdState
+    if (!isAdLoadedSuccessfully || activeAd == null) return
 
     Box(
         modifier = Modifier
@@ -81,7 +100,7 @@ fun AdMobBottomSheetAdDialog(
         contentAlignment = Alignment.BottomCenter
     ) {
         AnimatedVisibility(
-            visible = isVisible,
+            visible = isVisible && isAdLoadedSuccessfully,
             enter = slideInVertically(initialOffsetY = { it }),
             exit = slideOutVertically(targetOffsetY = { it })
         ) {
@@ -89,7 +108,7 @@ fun AdMobBottomSheetAdDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-                    .background(Color(0xFFF1E4DE)) // Warm aesthetic dialog background matching screenshot
+                    .background(Color(0xFFF1E4DE))
                     .navigationBarsPadding()
                     .clickable(enabled = false) {}
                     .padding(bottom = 20.dp)
@@ -106,7 +125,6 @@ fun AdMobBottomSheetAdDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            // Drag handle bar
                             Box(
                                 modifier = Modifier
                                     .size(width = 44.dp, height = 5.dp)
@@ -144,37 +162,36 @@ fun AdMobBottomSheetAdDialog(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Live AdMob / Meta Native Advanced Layout
+                    // Live Pre-Loaded AdMob Native Advanced View
                     AndroidView(
                         modifier = Modifier.fillMaxWidth(),
-                        factory = { context ->
-                            val adView = NativeAdView(context)
-                            val container = LinearLayout(context).apply {
+                        factory = { ctx ->
+                            val adView = NativeAdView(ctx)
+                            val container = LinearLayout(ctx).apply {
                                 orientation = LinearLayout.VERTICAL
                                 gravity = Gravity.CENTER_HORIZONTAL
                             }
 
-                            // Headline Title View
-                            val headlineView = TextView(context).apply {
+                            val headlineView = TextView(ctx).apply {
                                 textSize = 18f
                                 setTypeface(null, android.graphics.Typeface.BOLD)
                                 setTextColor(android.graphics.Color.parseColor("#1E293B"))
                                 gravity = Gravity.CENTER
+                                text = activeAd.headline
                             }
 
-                            // Subtitle Body View
-                            val bodyView = TextView(context).apply {
+                            val bodyView = TextView(ctx).apply {
                                 textSize = 12f
                                 setTextColor(android.graphics.Color.parseColor("#475569"))
                                 gravity = Gravity.CENTER
                                 setPadding(0, 6, 0, 14)
+                                text = activeAd.body ?: "Exclusive feature offer"
                             }
 
-                            // Central High-Res Graphic MediaView
-                            val density = context.resources.displayMetrics.density
+                            val density = ctx.resources.displayMetrics.density
                             val mediaHeightPx = (200 * density).toInt()
 
-                            val mediaView = MediaView(context).apply {
+                            val mediaView = MediaView(ctx).apply {
                                 layoutParams = LinearLayout.LayoutParams(
                                     ViewGroup.LayoutParams.MATCH_PARENT,
                                     mediaHeightPx
@@ -183,9 +200,8 @@ fun AdMobBottomSheetAdDialog(
                                 }
                             }
 
-                            // Full-Width High-Contrast Orange Action CTA Button ("INSTALL" / "LEARN MORE")
                             val ctaHeightPx = (48 * density).toInt()
-                            val ctaButton = Button(context).apply {
+                            val ctaButton = Button(ctx).apply {
                                 textSize = 14f
                                 setTypeface(null, android.graphics.Typeface.BOLD)
                                 setTextColor(android.graphics.Color.WHITE)
@@ -194,6 +210,7 @@ fun AdMobBottomSheetAdDialog(
                                     ViewGroup.LayoutParams.MATCH_PARENT,
                                     ctaHeightPx
                                 )
+                                text = (activeAd.callToAction ?: "INSTALL").uppercase()
                             }
 
                             container.addView(headlineView)
@@ -208,25 +225,7 @@ fun AdMobBottomSheetAdDialog(
                             adView.mediaView = mediaView
                             adView.callToActionView = ctaButton
 
-                            val adLoader = AdLoader.Builder(context, adUnitId)
-                                .forNativeAd { loadedAd ->
-                                    nativeAdState = loadedAd
-                                    (adView.headlineView as? TextView)?.text = loadedAd.headline
-                                    (adView.bodyView as? TextView)?.text = loadedAd.body ?: "Exclusive feature offer"
-                                    (adView.callToActionView as? Button)?.text = (loadedAd.callToAction ?: "INSTALL").uppercase()
-
-                                    adView.setNativeAd(loadedAd)
-                                    isLoading = false
-                                }
-                                .withAdListener(object : AdListener() {
-                                    override fun onAdFailedToLoad(error: LoadAdError) {
-                                        super.onAdFailedToLoad(error)
-                                        isLoading = false
-                                    }
-                                })
-                                .build()
-
-                            adLoader.loadAd(AdManager.buildAdRequest())
+                            adView.setNativeAd(activeAd)
                             adView
                         }
                     )

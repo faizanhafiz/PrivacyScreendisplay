@@ -263,6 +263,15 @@ fun HomeScreenContent(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
+                // Inline Ad Placement right after Protected Apps card
+                if (!status.isPremiumSubscriber) {
+                    com.app.privacyscreendisplay.home.presentation.ui.components.AdBannerCard(
+                        onAdClick = onPremiumClick
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                }
+
                 // 3. Quick Settings Section
                 Text(
                     text = "Quick Controls",
@@ -285,14 +294,7 @@ fun HomeScreenContent(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Inline Ad Placement right after Protected Apps card
-                if (!status.isPremiumSubscriber) {
-                    com.app.privacyscreendisplay.home.presentation.ui.components.AdBannerCard(
-                        onAdClick = onPremiumClick
-                    )
 
-                    Spacer(modifier = Modifier.height(14.dp))
-                }
 
                 QuickSettingCard(
                     title = "AI Detection Sensitivity",

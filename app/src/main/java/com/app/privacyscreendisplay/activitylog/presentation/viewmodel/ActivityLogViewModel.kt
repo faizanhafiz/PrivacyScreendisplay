@@ -28,7 +28,14 @@ class ActivityLogViewModel(
     val uiState: StateFlow<ActivityLogUiState> = _uiState.asStateFlow()
 
     init {
+        purgeOldLogs()
         observeLogs()
+    }
+
+    private fun purgeOldLogs() {
+        viewModelScope.launch {
+            repository.purgeLogsOlderThan(7)
+        }
     }
 
     private fun observeLogs() {
@@ -56,6 +63,18 @@ class ActivityLogViewModel(
     fun clearLogs() {
         viewModelScope.launch {
             repository.clearActivityLogs()
+        }
+    }
+
+    fun deleteSelectedLogs(selectedIds: Set<String>) {
+        viewModelScope.launch {
+            repository.deleteLogItems(selectedIds)
+        }
+    }
+
+    fun deleteLogItem(logId: String) {
+        viewModelScope.launch {
+            repository.deleteLogItems(setOf(logId))
         }
     }
 

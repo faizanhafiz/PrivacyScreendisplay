@@ -101,10 +101,69 @@ class ActivityLogLocalDataSource(
     }
 
     /**
-     * Purges all activity logs persistently.
+     * Automatically purges logs older than the specified retention window (default 7 days)
+     * and deletes their snapshot image files from disk.
+     */
+    suspend fun purgeLogsOlderThan(days: Int = 7) {
+        val cutoffTimestamp = System.currentTimeMillis() - (days * 24 * 60 * 60 * 1000L)
+        context.activityLogDataStore.edit { prefs ->
+            val existingJson = prefs[KEY_LOGS_JSON]
+            if (!existingJson.isNullOrEmpty()) {
+                val currentLogs = parseLogsJson(existingJson)
+                val validLogs = mutableListOf<ActivityLogItem>()
+
+                for (item in currentLogs) {
+                    if (item.timestamp < cutoffTimestamp) {
+                        item.imagePath?.let { path ->
+                            try { java.io.File(path).delete() } catch (_: Exception) {}
+                        }
+                    } else {
+                        validLogs.add(item)
+                    }
+                }
+                prefs[KEY_LOGS_JSON] = serializeLogsJson(validLogs)
+            }
+        }
+    }
+
+    /**
+     * Deletes a specific set of activity logs by their IDs and cleans up their snapshot files.
+     */
+    suspend fun deleteLogItems(logIds: Set<String>) {
+        context.activityLogDataStore.edit { prefs ->
+            val existingJson = prefs[KEY_LOGS_JSON]
+            if (!existingJson.isNullOrEmpty()) {
+                val currentLogs = parseLogsJson(existingJson)
+                val remainingLogs = mutableListOf<ActivityLogItem>()
+
+                for (item in currentLogs) {
+                    if (logIds.contains(item.id)) {
+                        item.imagePath?.let { path ->
+                            try { java.io.File(path).delete() } catch (_: Exception) {}
+                        }
+                    } else {
+                        remainingLogs.add(item)
+                    }
+                }
+                prefs[KEY_LOGS_JSON] = serializeLogsJson(remainingLogs)
+            }
+        }
+    }
+
+    /**
+     * Purges all activity logs persistently and deletes all associated snapshot image files.
      */
     suspend fun clearActivityLogs() {
         context.activityLogDataStore.edit { prefs ->
+            val existingJson = prefs[KEY_LOGS_JSON]
+            if (!existingJson.isNullOrEmpty()) {
+                val currentLogs = parseLogsJson(existingJson)
+                for (item in currentLogs) {
+                    item.imagePath?.let { path ->
+                        try { java.io.File(path).delete() } catch (_: Exception) {}
+                    }
+                }
+            }
             prefs[KEY_LOGS_JSON] = ""
             prefs[KEY_INITIALIZED] = "true"
         }

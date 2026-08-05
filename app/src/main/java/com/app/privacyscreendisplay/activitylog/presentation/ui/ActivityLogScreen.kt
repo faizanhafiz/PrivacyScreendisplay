@@ -1,6 +1,9 @@
 package com.app.privacyscreendisplay.activitylog.presentation.ui
 
 import android.graphics.BitmapFactory
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -8,6 +11,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,18 +22,21 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CameraAlt
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.SelectAll
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.AlertDialog
@@ -37,6 +44,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -46,6 +55,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,6 +65,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -69,6 +80,8 @@ import com.app.privacyscreendisplay.activitylog.presentation.viewmodel.ActivityL
 import com.app.privacyscreendisplay.core.ads.InterstitialAdManager
 import com.app.privacyscreendisplay.core.ads.RewardedAdManager
 import com.app.privacyscreendisplay.home.presentation.ui.components.AdBannerCard
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 
 @Composable
@@ -83,6 +96,8 @@ fun ActivityLogScreen(
     ActivityLogContent(
         uiState = uiState,
         onClearLogs = viewModel::clearLogs,
+        onDeleteSelectedLogs = viewModel::deleteSelectedLogs,
+        onDeleteLogItem = viewModel::deleteLogItem,
         onUnblurItem = viewModel::unblurLogItem,
         onNavigateBack = onNavigateBack,
         onNavigateToPremium = onNavigateToPremium,
@@ -94,13 +109,19 @@ fun ActivityLogScreen(
 fun ActivityLogContent(
     uiState: ActivityLogUiState,
     onClearLogs: () -> Unit,
+    onDeleteSelectedLogs: (Set<String>) -> Unit,
+    onDeleteLogItem: (String) -> Unit,
     onUnblurItem: (String) -> Unit,
     onNavigateBack: () -> Unit,
     onNavigateToPremium: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var showClearConfirmDialog by remember { mutableStateOf(false) }
+    var isSelectionMode by remember { mutableStateOf(false) }
+    var selectedItemIds by remember { mutableStateOf(setOf<String>()) }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var singleItemToDelete by remember { mutableStateOf<ActivityLogItem?>(null) }
+    var isAdLoading by remember { mutableStateOf(false) }
     var selectedLockedItem by remember { mutableStateOf<ActivityLogItem?>(null) }
     var selectedExpandedItem by remember { mutableStateOf<ActivityLogItem?>(null) }
 
@@ -112,44 +133,95 @@ fun ActivityLogContent(
         color = MaterialTheme.colorScheme.background
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Header Bar
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = onNavigateBack,
-                    modifier = Modifier.size(40.dp)
+            // Header Bar - Switches dynamically between Normal Mode & Multi-Select Mode
+            if (isSelectionMode) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFFFEF2F2))
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color(0xFF0F172A)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Text(
-                    text = "Activity Log",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A),
-                    modifier = Modifier.weight(1f)
-                )
-
-                if (uiState.logs.isNotEmpty()) {
                     IconButton(
-                        onClick = { showClearConfirmDialog = true },
+                        onClick = {
+                            isSelectionMode = false
+                            selectedItemIds = emptySet()
+                        },
                         modifier = Modifier.size(40.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.DeleteOutline,
-                            contentDescription = "Clear Log",
-                            tint = Color(0xFFEF4444)
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = "Cancel Selection",
+                            tint = Color(0xFF991B1B)
                         )
+                    }
+
+                    Spacer(modifier = Modifier.width(6.dp))
+
+                    Text(
+                        text = "${selectedItemIds.size} Selected",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF991B1B),
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    if (selectedItemIds.isNotEmpty()) {
+                        IconButton(
+                            onClick = { showDeleteConfirmDialog = true },
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Delete,
+                                contentDescription = "Delete Selected",
+                                tint = Color(0xFFEF4444)
+                            )
+                        }
+                    }
+                }
+            } else {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = onNavigateBack,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color(0xFF0F172A)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Text(
+                        text = "Activity Log",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A),
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    if (uiState.logs.isNotEmpty()) {
+                        // Delete Button: Tapping enters Multi-Select Delete Mode
+                        IconButton(
+                            onClick = {
+                                isSelectionMode = true
+                                selectedItemIds = emptySet()
+                            },
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.DeleteOutline,
+                                contentDescription = "Select to Delete",
+                                tint = Color(0xFFEF4444)
+                            )
+                        }
                     }
                 }
             }
@@ -164,73 +236,118 @@ fun ActivityLogContent(
                     CircularProgressIndicator(color = Color(0xFF047857))
                 }
             } else {
-                Column(
+                // Performant LazyColumn - Only visible items load image thumbnails asynchronously off-thread!
+                LazyColumn(
                     modifier = Modifier
                         .weight(1f)
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 20.dp)
+                        .fillMaxWidth(),
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp)
                 ) {
-                    // Summary Metric Cards Row
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        MetricSummaryCard(
-                            title = "Today",
-                            value = "${uiState.detectionsToday}",
-                            subtitle = "Detections",
-                            bgColor = Color(0xFFECFDF5),
-                            valueColor = Color(0xFF047857),
-                            modifier = Modifier.weight(1f)
-                        )
+                    // Summary Metric Cards Header Item
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            MetricSummaryCard(
+                                title = "Today",
+                                value = "${uiState.detectionsToday}",
+                                subtitle = "Detections",
+                                bgColor = Color(0xFFECFDF5),
+                                valueColor = Color(0xFF047857),
+                                modifier = Modifier.weight(1f)
+                            )
 
-                        MetricSummaryCard(
-                            title = "Most Target",
-                            value = uiState.mostProtectedApp,
-                            subtitle = "Protected App",
-                            bgColor = Color(0xFFF0F9FF),
-                            valueColor = Color(0xFF0284C7),
-                            modifier = Modifier.weight(1f)
-                        )
+                            MetricSummaryCard(
+                                title = "Most Target",
+                                value = uiState.mostProtectedApp,
+                                subtitle = "Protected App",
+                                bgColor = Color(0xFFF0F9FF),
+                                valueColor = Color(0xFF0284C7),
+                                modifier = Modifier.weight(1f)
+                            )
 
-                        MetricSummaryCard(
-                            title = "Total Logs",
-                            value = "${uiState.totalActivations}",
-                            subtitle = "Events Recorded",
-                            bgColor = Color(0xFFF5F3FF),
-                            valueColor = Color(0xFF7C3AED),
-                            modifier = Modifier.weight(1f)
-                        )
+                            MetricSummaryCard(
+                                title = "Total Logs",
+                                value = "${uiState.totalActivations}",
+                                subtitle = "7-Day History",
+                                bgColor = Color(0xFFF5F3FF),
+                                valueColor = Color(0xFF7C3AED),
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(20.dp))
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
-
                     if (uiState.logs.isEmpty()) {
-                        EmptyActivityLogView()
+                        item {
+                            EmptyActivityLogView()
+                        }
                     } else {
-                        // Group logs by date group
+                        // Render Log Items Grouped by Date Group
                         val grouped = uiState.logs.groupBy { it.dateGroup }
 
                         grouped.forEach { (dateGroup, items) ->
-                            Text(
-                                text = dateGroup,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF64748B),
-                                modifier = Modifier.padding(vertical = 8.dp)
-                            )
+                            item(key = "header_$dateGroup") {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = dateGroup,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF64748B)
+                                    )
 
-                            items.forEach { logItem ->
+                                    if (isSelectionMode) {
+                                        val allGroupIds = items.map { it.id }.toSet()
+                                        val isAllGroupSelected = selectedItemIds.containsAll(allGroupIds)
+
+                                        TextButton(
+                                            onClick = {
+                                                selectedItemIds = if (isAllGroupSelected) {
+                                                    selectedItemIds - allGroupIds
+                                                } else {
+                                                    selectedItemIds + allGroupIds
+                                                }
+                                            }
+                                        ) {
+                                            Text(
+                                                text = if (isAllGroupSelected) "Deselect All" else "Select All",
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFFEF4444)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            items(
+                                items = items,
+                                key = { it.id }
+                            ) { logItem ->
                                 LogItemCard(
                                     item = logItem,
                                     isPremiumUser = uiState.isPremiumUser,
+                                    isSelectionMode = isSelectionMode,
+                                    isSelected = selectedItemIds.contains(logItem.id),
+                                    onToggleSelect = {
+                                        selectedItemIds = if (selectedItemIds.contains(logItem.id)) {
+                                            selectedItemIds - logItem.id
+                                        } else {
+                                            selectedItemIds + logItem.id
+                                        }
+                                    },
                                     onLockedItemClick = { selectedLockedItem = logItem },
                                     onExpandedItemClick = { selectedExpandedItem = logItem }
                                 )
                                 Spacer(modifier = Modifier.height(10.dp))
                             }
-
-                            Spacer(modifier = Modifier.height(12.dp))
                         }
                     }
                 }
@@ -246,10 +363,81 @@ fun ActivityLogContent(
         }
     }
 
-    // Clear Confirmation Dialog
-    if (showClearConfirmDialog) {
+    // Delete Selected Confirmation Dialog
+    if (showDeleteConfirmDialog) {
         AlertDialog(
-            onDismissRequest = { showClearConfirmDialog = false },
+            onDismissRequest = { showDeleteConfirmDialog = false },
+            shape = RoundedCornerShape(20.dp),
+            containerColor = Color.White,
+            icon = {
+                Icon(
+                    imageVector = Icons.Rounded.Delete,
+                    contentDescription = null,
+                    tint = Color(0xFFEF4444),
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Delete ${selectedItemIds.size} Selected Logs?",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF0F172A)
+                )
+            },
+            text = {
+                Text(
+                    text = "Selected shoulder surfing activity logs and their intruder photo snapshots will be permanently deleted from your device.",
+                    fontSize = 14.sp,
+                    color = Color(0xFF64748B)
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val idsToDelete = selectedItemIds
+                        showDeleteConfirmDialog = false
+                        isSelectionMode = false
+                        selectedItemIds = emptySet()
+
+                        if (!uiState.isPremiumUser) {
+                            InterstitialAdManager.showAdWithLoading(
+                                context = context,
+                                onLoadingStateChanged = { isAdLoading = it },
+                                onAdDismissed = {
+                                    onDeleteSelectedLogs(idsToDelete)
+                                }
+                            )
+                        } else {
+                            onDeleteSelectedLogs(idsToDelete)
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Delete (${selectedItemIds.size})", fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDeleteConfirmDialog = false },
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Cancel", color = Color(0xFF64748B))
+                }
+            }
+        )
+    }
+
+    // Ad Loading Overlay (Custom 3-dot blue triangle loader without white card background)
+    com.app.privacyscreendisplay.core.ui.components.AdLoadingOverlay(
+        isVisible = isAdLoading
+    )
+
+    // Single Item Delete Confirmation Dialog
+    singleItemToDelete?.let { item ->
+        AlertDialog(
+            onDismissRequest = { singleItemToDelete = null },
             shape = RoundedCornerShape(20.dp),
             containerColor = Color.White,
             icon = {
@@ -262,7 +450,7 @@ fun ActivityLogContent(
             },
             title = {
                 Text(
-                    text = "Clear Activity Log?",
+                    text = "Delete Activity Log?",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF0F172A)
@@ -270,7 +458,7 @@ fun ActivityLogContent(
             },
             text = {
                 Text(
-                    text = "Are you sure you want to delete all recorded shoulder surfing logs and intruder snapshots?",
+                    text = "Delete the shoulder surfing log captured on ${item.appName} at ${item.formattedTime}?",
                     fontSize = 14.sp,
                     color = Color(0xFF64748B)
                 )
@@ -278,24 +466,19 @@ fun ActivityLogContent(
             confirmButton = {
                 Button(
                     onClick = {
-                        showClearConfirmDialog = false
-                        if (!uiState.isPremiumUser) {
-                            InterstitialAdManager.showAd(context) {
-                                onClearLogs()
-                            }
-                        } else {
-                            onClearLogs()
-                        }
+                        val targetId = item.id
+                        singleItemToDelete = null
+                        onDeleteLogItem(targetId)
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Clear All", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("Delete", fontWeight = FontWeight.Bold, color = Color.White)
                 }
             },
             dismissButton = {
                 TextButton(
-                    onClick = { showClearConfirmDialog = false },
+                    onClick = { singleItemToDelete = null },
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text("Cancel", color = Color(0xFF64748B))
@@ -347,13 +530,13 @@ fun ActivityLogContent(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Option A: Watch Rewarded Ad
                     Button(
                         onClick = {
                             val targetId = item.id
                             selectedLockedItem = null
-                            RewardedAdManager.showAd(
+                            RewardedAdManager.showAdWithLoading(
                                 context = context,
+                                onLoadingStateChanged = { isAdLoading = it },
                                 onUserEarnedReward = {
                                     onUnblurItem(targetId)
                                 },
@@ -383,7 +566,6 @@ fun ActivityLogContent(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Option B: Upgrade to Premium
                     OutlinedButton(
                         onClick = {
                             selectedLockedItem = null
@@ -415,12 +597,7 @@ fun ActivityLogContent(
 
     // Fullscreen Photo Zoom Preview Dialog
     selectedExpandedItem?.let { item ->
-        val file = item.imagePath?.let { File(it) }
-        val bitmap = remember(item.imagePath) {
-            if (file != null && file.exists()) {
-                BitmapFactory.decodeFile(file.absolutePath)
-            } else null
-        }
+        val bitmap = rememberAsyncThumbnail(item.imagePath)
 
         AlertDialog(
             onDismissRequest = { selectedExpandedItem = null },
@@ -451,7 +628,7 @@ fun ActivityLogContent(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     if (bitmap != null) {
                         Image(
-                            bitmap = bitmap.asImageBitmap(),
+                            bitmap = bitmap,
                             contentDescription = "Unblurred Intruder Snapshot",
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -490,6 +667,31 @@ fun ActivityLogContent(
             confirmButton = {}
         )
     }
+}
+
+/**
+ * Asynchronous Sub-Sampled Thumbnail Loader.
+ * Decodes image thumbnails on Dispatchers.IO at 1/4 size so screen open and scroll stay buttery smooth with ZERO lag.
+ */
+@Composable
+private fun rememberAsyncThumbnail(imagePath: String?): ImageBitmap? {
+    if (imagePath.isNullOrEmpty()) return null
+    val resultState = remember(imagePath) { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(imagePath) {
+        withContext(Dispatchers.IO) {
+            try {
+                val file = File(imagePath)
+                if (file.exists()) {
+                    val options = BitmapFactory.Options().apply {
+                        inSampleSize = 4 // Sub-sample to 1/4 dimensions for ultra-fast thumbnail decoding
+                    }
+                    val bmp = BitmapFactory.decodeFile(file.absolutePath, options)
+                    resultState.value = bmp?.asImageBitmap()
+                }
+            } catch (_: Exception) {}
+        }
+    }
+    return resultState.value
 }
 
 @Composable
@@ -556,25 +758,29 @@ private fun MetricSummaryCard(
 private fun LogItemCard(
     item: ActivityLogItem,
     isPremiumUser: Boolean,
+    isSelectionMode: Boolean,
+    isSelected: Boolean,
+    onToggleSelect: () -> Unit,
     onLockedItemClick: () -> Unit,
     onExpandedItemClick: () -> Unit
 ) {
     val isUnblurred = isPremiumUser || item.isUnblurred
-    val file = item.imagePath?.let { File(it) }
-    val bitmap = remember(item.imagePath) {
-        if (file != null && file.exists()) {
-            BitmapFactory.decodeFile(file.absolutePath)
-        } else null
-    }
+    val thumbnailBitmap = rememberAsyncThumbnail(item.imagePath)
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFFFAFAFA))
-            .border(1.dp, Color(0xFFF1F5F9), RoundedCornerShape(16.dp))
+            .background(if (isSelected) Color(0xFFFEF2F2) else Color(0xFFFAFAFA))
+            .border(
+                width = 1.dp,
+                color = if (isSelected) Color(0xFFEF4444) else Color(0xFFF1F5F9),
+                shape = RoundedCornerShape(16.dp)
+            )
             .clickable {
-                if (isUnblurred) {
+                if (isSelectionMode) {
+                    onToggleSelect()
+                } else if (isUnblurred) {
                     onExpandedItemClick()
                 } else {
                     onLockedItemClick()
@@ -583,6 +789,19 @@ private fun LogItemCard(
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // Selection Square Checkbox (Visible when in Multi-Select Delete Mode)
+        if (isSelectionMode) {
+            Checkbox(
+                checked = isSelected,
+                onCheckedChange = { onToggleSelect() },
+                colors = CheckboxDefaults.colors(
+                    checkedColor = Color(0xFFEF4444),
+                    uncheckedColor = Color(0xFF94A3B8)
+                ),
+                modifier = Modifier.padding(end = 6.dp)
+            )
+        }
+
         // Intruder Snapshot Thumbnail Container (Blurred or Unblurred)
         Box(
             modifier = Modifier
@@ -591,9 +810,9 @@ private fun LogItemCard(
                 .background(Color(0xFFF1F5F9)),
             contentAlignment = Alignment.Center
         ) {
-            if (bitmap != null) {
+            if (thumbnailBitmap != null) {
                 Image(
-                    bitmap = bitmap.asImageBitmap(),
+                    bitmap = thumbnailBitmap,
                     contentDescription = "Intruder Snapshot",
                     modifier = Modifier
                         .fillMaxSize()
@@ -667,27 +886,29 @@ private fun LogItemCard(
 
         Spacer(modifier = Modifier.width(8.dp))
 
-        // Badge: Unblur / Status indicator
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .background(if (isUnblurred) Color(0xFFDCFCE7) else Color(0xFFFEF3C7))
-                .padding(horizontal = 8.dp, vertical = 4.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = if (isUnblurred) Icons.Rounded.LockOpen else Icons.Rounded.Lock,
-                    contentDescription = null,
-                    tint = if (isUnblurred) Color(0xFF047857) else Color(0xFFD97706),
-                    modifier = Modifier.size(12.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = if (isUnblurred) "View" else "Locked",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isUnblurred) Color(0xFF047857) else Color(0xFFD97706)
-                )
+        if (!isSelectionMode) {
+            // Badge: View / Locked Status
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (isUnblurred) Color(0xFFDCFCE7) else Color(0xFFFEF3C7))
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = if (isUnblurred) Icons.Rounded.LockOpen else Icons.Rounded.Lock,
+                        contentDescription = null,
+                        tint = if (isUnblurred) Color(0xFF047857) else Color(0xFFD97706),
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (isUnblurred) "View" else "Locked",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isUnblurred) Color(0xFF047857) else Color(0xFFD97706)
+                    )
+                }
             }
         }
     }

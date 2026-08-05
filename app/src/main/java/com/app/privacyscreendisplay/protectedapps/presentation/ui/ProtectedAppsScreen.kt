@@ -66,6 +66,7 @@ fun ProtectedAppsScreen(
     val context = LocalContext.current
     var showAppPickerDialog by remember { mutableStateOf(false) }
     var appPendingRemoval by remember { mutableStateOf<ProtectedApp?>(null) }
+    var isAdLoading by remember { mutableStateOf(false) }
 
     ProtectedAppsContent(
         uiState = uiState,
@@ -126,7 +127,11 @@ fun ProtectedAppsScreen(
                         viewModel.onRemoveAppClicked(pkg)
                         toastState.show("Removed $name from protected apps", ToastType.WARNING)
                         if (!com.app.privacyscreendisplay.core.ads.AdConfig.isPremiumUser) {
-                            com.app.privacyscreendisplay.core.ads.InterstitialAdManager.showAd(context) { }
+                            com.app.privacyscreendisplay.core.ads.InterstitialAdManager.showAdWithLoading(
+                                context = context,
+                                onLoadingStateChanged = { isAdLoading = it },
+                                onAdDismissed = {}
+                            )
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
@@ -154,9 +159,18 @@ fun ProtectedAppsScreen(
             viewModel.onAddAppClicked(app)
             toastState.show("Added ${app.appName} to protected apps", ToastType.SUCCESS)
             if (!com.app.privacyscreendisplay.core.ads.AdConfig.isPremiumUser) {
-                com.app.privacyscreendisplay.core.ads.InterstitialAdManager.showAd(context) {}
+                com.app.privacyscreendisplay.core.ads.InterstitialAdManager.showAdWithLoading(
+                    context = context,
+                    onLoadingStateChanged = { isAdLoading = it },
+                    onAdDismissed = {}
+                )
             }
         }
+    )
+
+    // Ad Loading Overlay (3-dot blue triangle loader without white card background)
+    com.app.privacyscreendisplay.core.ui.components.AdLoadingOverlay(
+        isVisible = isAdLoading
     )
 }
 
