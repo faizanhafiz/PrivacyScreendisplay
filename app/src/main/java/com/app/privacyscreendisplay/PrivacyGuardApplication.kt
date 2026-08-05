@@ -23,6 +23,8 @@ class PrivacyGuardApplication : Application() {
         com.app.privacyscreendisplay.core.ads.AdManager.initialize(this) {
             if (!com.app.privacyscreendisplay.core.ads.AdConfig.isPremiumUser) {
                 appOpenAdManager.fetchAd(showOnLoad = false)
+                com.app.privacyscreendisplay.core.ads.CentralizedNativeAdManager.initialize(this)
+                com.app.privacyscreendisplay.core.ads.CentralizedBannerAdManager.initialize(this)
             }
         }
     }

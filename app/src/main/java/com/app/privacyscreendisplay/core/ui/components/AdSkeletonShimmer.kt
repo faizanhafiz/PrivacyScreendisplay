@@ -64,72 +64,48 @@ fun AdSkeletonShimmer(
             .background(Color(0xFFF8FAFC))
             .padding(14.dp)
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                // Skeleton Ad Tag Badge
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // Skeleton Icon Box
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(brush)
+            )
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                // Skeleton Title Bar
                 Box(
                     modifier = Modifier
-                        .size(width = 36.dp, height = 16.dp)
+                        .fillMaxWidth(0.7f)
+                        .height(14.dp)
                         .clip(RoundedCornerShape(4.dp))
                         .background(brush)
                 )
 
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
-                // Skeleton Sponsored Text
+                // Skeleton Subtitle Bar
                 Box(
                     modifier = Modifier
-                        .size(width = 90.dp, height = 14.dp)
+                        .fillMaxWidth(0.9f)
+                        .height(12.dp)
                         .clip(RoundedCornerShape(4.dp))
                         .background(brush)
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.width(12.dp))
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                // Skeleton Icon Box
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(brush)
-                )
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    // Skeleton Title Bar
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(0.7f)
-                            .height(14.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(brush)
-                    )
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    // Skeleton Subtitle Bar
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(0.9f)
-                            .height(12.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(brush)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                // Skeleton CTA Button
-                Box(
-                    modifier = Modifier
-                        .size(width = 64.dp, height = 32.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(brush)
-                )
-            }
+            // Skeleton CTA Button
+            Box(
+                modifier = Modifier
+                    .size(width = 64.dp, height = 32.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(brush)
+            )
         }
     }
 }

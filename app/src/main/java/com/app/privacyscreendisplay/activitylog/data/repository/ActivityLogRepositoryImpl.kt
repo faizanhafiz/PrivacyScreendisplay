@@ -7,6 +7,8 @@ import kotlinx.coroutines.flow.Flow
 interface ActivityLogRepository {
     fun getActivityLogs(): Flow<List<ActivityLogItem>>
     suspend fun clearActivityLogs()
+    suspend fun deleteLogItems(logIds: Set<String>)
+    suspend fun purgeLogsOlderThan(days: Int)
     suspend fun unblurLogItem(logId: String)
 }
 
@@ -20,6 +22,14 @@ class ActivityLogRepositoryImpl(
 
     override suspend fun clearActivityLogs() {
         localDataSource.clearActivityLogs()
+    }
+
+    override suspend fun deleteLogItems(logIds: Set<String>) {
+        localDataSource.deleteLogItems(logIds)
+    }
+
+    override suspend fun purgeLogsOlderThan(days: Int) {
+        localDataSource.purgeLogsOlderThan(days)
     }
 
     override suspend fun unblurLogItem(logId: String) {

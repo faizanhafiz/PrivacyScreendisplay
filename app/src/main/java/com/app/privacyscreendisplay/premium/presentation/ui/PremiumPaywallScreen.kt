@@ -32,8 +32,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -66,6 +69,8 @@ fun PremiumPaywallScreen(
     val toastState = LocalToastState.current
     val coroutineScope = rememberCoroutineScope()
     val localDataSource = remember(context) { PrivacyGuardLocalDataSource(context) }
+
+    var isAdLoading by remember { mutableStateOf(false) }
 
     // Preload Rewarded Ad on Screen Launch
     LaunchedEffect(Unit) {
@@ -215,20 +220,18 @@ fun PremiumPaywallScreen(
                 // Watch Ad Button
                 Button(
                     onClick = {
-                        toastState.show("Opening Rewarded Video Ad...", ToastType.INFO)
-                        RewardedAdManager.showAd(
+                        RewardedAdManager.showAdWithLoading(
                             context = context,
+                            onLoadingStateChanged = { isAdLoading = it },
                             onUserEarnedReward = {
                                 coroutineScope.launch {
                                     localDataSource.grant24HourPremium()
-                                    toastState.show("🎉 2-Minute Premium Activated (Testing Mode)! All features unlocked.", ToastType.SUCCESS)
+                                    toastState.show("🎉 24-Hour Premium Activated! All features unlocked.", ToastType.SUCCESS)
                                     onPremiumActivated()
                                     onNavigateBack()
                                 }
                             },
-                            onAdDismissedOrFailed = {
-                                // Handled in onUserEarnedReward fallback
-                            }
+                            onAdDismissedOrFailed = {}
                         )
                     },
                     modifier = Modifier
@@ -328,6 +331,11 @@ fun PremiumPaywallScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
         }
+
+        // Ad Loading Overlay (3-dot blue triangle loader without white card background)
+        com.app.privacyscreendisplay.core.ui.components.AdLoadingOverlay(
+            isVisible = isAdLoading
+        )
     }
 }
 

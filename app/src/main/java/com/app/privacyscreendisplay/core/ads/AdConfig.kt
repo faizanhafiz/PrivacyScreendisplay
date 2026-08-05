@@ -13,21 +13,22 @@ object AdConfig {
     var isPremiumUser: Boolean = false
 
     // Toggle this flag to switch between official Test IDs and Production IDs
-    const val IS_TEST_MODE = true
+    const val IS_TEST_MODE = false
+
 
     // Official AdMob Test App ID & Ad Unit IDs
-    private const val TEST_BANNER_AD_UNIT_ID = "ca-app-pub-3940256099942544/6300978111"
-    private const val TEST_NATIVE_AD_UNIT_ID = "ca-app-pub-3940256099942544/2247696110"
-    private const val TEST_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712"
-    private const val TEST_REWARDED_AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917"
-    private const val TEST_APP_OPEN_AD_UNIT_ID = "ca-app-pub-3940256099942544/9257395921"
+    const val TEST_BANNER_AD_UNIT_ID = "ca-app-pub-3940256099942544/6300978111"
+    const val TEST_NATIVE_AD_UNIT_ID = "ca-app-pub-3940256099942544/2247696110"
+    const val TEST_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712"
+    const val TEST_REWARDED_AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917"
+    const val TEST_APP_OPEN_AD_UNIT_ID = "ca-app-pub-3940256099942544/9257395921"
 
     // Production Placeholders (Replace with your actual AdMob Dashboard IDs)
-    private const val PROD_BANNER_AD_UNIT_ID = "ca-app-pub-YOUR_ADMOB_PUB_ID/YOUR_BANNER_ID"
-    private const val PROD_NATIVE_AD_UNIT_ID = "ca-app-pub-YOUR_ADMOB_PUB_ID/YOUR_NATIVE_ID"
-    private const val PROD_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-YOUR_ADMOB_PUB_ID/YOUR_INTERSTITIAL_ID"
-    private const val PROD_REWARDED_AD_UNIT_ID = "ca-app-pub-YOUR_ADMOB_PUB_ID/YOUR_REWARDED_ID"
-    private const val PROD_APP_OPEN_AD_UNIT_ID = "ca-app-pub-YOUR_ADMOB_PUB_ID/YOUR_APP_OPEN_ID"
+    private const val PROD_BANNER_AD_UNIT_ID = "ca-app-pub-7188839988485075/3133152105"
+    private const val PROD_NATIVE_AD_UNIT_ID = "ca-app-pub-7188839988485075/8883906309"
+    private const val PROD_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-7188839988485075/2565909968"
+    private const val PROD_REWARDED_AD_UNIT_ID = "ca-app-pub-7188839988485075/1196987979"
+    private const val PROD_APP_OPEN_AD_UNIT_ID = "ca-app-pub-7188839988485075/9506988764"
 
     val bannerAdUnitId: String
         get() = if (IS_TEST_MODE) TEST_BANNER_AD_UNIT_ID else PROD_BANNER_AD_UNIT_ID

@@ -3,6 +3,8 @@ package com.app.privacyscreendisplay.core.ads
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import com.google.android.gms.ads.AdError
 import com.google.android.gms.ads.AdRequest
@@ -12,8 +14,8 @@ import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 
 /**
- * Singleton Ad Manager orchestrating AdMob Interstitial Ads for action triggers
- * (Clear Log, Add/Remove Protected App).
+ * Production Ad Manager orchestrating AdMob Interstitial Ads for action triggers
+ * (Clear Log, Delete Logs, Add/Remove Protected App) with center-screen loading & 4s timeout fallback.
  */
 object InterstitialAdManager {
 
@@ -49,35 +51,100 @@ object InterstitialAdManager {
     }
 
     fun showAd(context: Context, onAdDismissed: () -> Unit) {
+        showAdWithLoading(
+            context = context,
+            onLoadingStateChanged = {},
+            onAdDismissed = onAdDismissed
+        )
+    }
+
+    /**
+     * Shows Interstitial Ad with center-screen loading indicator callback.
+     * If ad fails to load or takes >4 seconds, automatically grants what the user expected to get!
+     */
+    fun showAdWithLoading(
+        context: Context,
+        onLoadingStateChanged: (Boolean) -> Unit,
+        onAdDismissed: () -> Unit
+    ) {
         if (AdConfig.isPremiumUser) {
             onAdDismissed()
             return
         }
 
         val activity = context.findActivity()
-        val ad = interstitialAd
+        val existingAd = interstitialAd
 
-        if (ad != null && activity != null) {
-            ad.fullScreenContentCallback = object : FullScreenContentCallback() {
-                override fun onAdDismissedFullScreenContent() {
-                    interstitialAd = null
-                    loadAd(context)
-                    onAdDismissed()
-                }
+        if (existingAd != null && activity != null) {
+            showAdInternal(activity, context, existingAd, onAdDismissed)
+            interstitialAd = null
+        } else {
+            // Show center-screen loading indicator while fetching ad
+            onLoadingStateChanged(true)
+            val adRequest = AdRequest.Builder().build()
 
-                override fun onAdFailedToShowFullScreenContent(adError: AdError) {
-                    interstitialAd = null
-                    loadAd(context)
+            var isHandled = false
+            fun finishAndProceed(loadedAd: InterstitialAd?) {
+                if (isHandled) return
+                isHandled = true
+                onLoadingStateChanged(false)
+                if (loadedAd != null && activity != null) {
+                    showAdInternal(activity, context, loadedAd, onAdDismissed)
+                } else {
+                    // Ad failed or timed out -> Grant request success & expected action!
+                    Log.w(TAG, "Interstitial ad load failed or timed out (4s). Automatically granting expected action.")
                     onAdDismissed()
                 }
             }
-            ad.show(activity)
-            interstitialAd = null
-        } else {
-            // If ad is not ready, proceed without blocking user action
-            loadAd(context)
-            onAdDismissed()
+
+            // 4-second timeout limit
+            val handler = Handler(Looper.getMainLooper())
+            val timeoutRunnable = Runnable {
+                Log.w(TAG, "Interstitial ad 4s timeout reached. Granting request success.")
+                finishAndProceed(null)
+            }
+            handler.postDelayed(timeoutRunnable, 4000L)
+
+            InterstitialAd.load(
+                context,
+                AdConfig.interstitialAdUnitId,
+                adRequest,
+                object : InterstitialAdLoadCallback() {
+                    override fun onAdLoaded(ad: InterstitialAd) {
+                        handler.removeCallbacks(timeoutRunnable)
+                        finishAndProceed(ad)
+                    }
+
+                    override fun onAdFailedToLoad(adError: LoadAdError) {
+                        Log.e(TAG, "Interstitial ad failed to load: ${adError.message}")
+                        handler.removeCallbacks(timeoutRunnable)
+                        finishAndProceed(null)
+                    }
+                }
+            )
         }
+    }
+
+    private fun showAdInternal(
+        activity: Activity,
+        context: Context,
+        ad: InterstitialAd,
+        onAdDismissed: () -> Unit
+    ) {
+        ad.fullScreenContentCallback = object : FullScreenContentCallback() {
+            override fun onAdDismissedFullScreenContent() {
+                interstitialAd = null
+                loadAd(context)
+                onAdDismissed()
+            }
+
+            override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+                interstitialAd = null
+                loadAd(context)
+                onAdDismissed()
+            }
+        }
+        ad.show(activity)
     }
 
     private fun Context.findActivity(): Activity? {
