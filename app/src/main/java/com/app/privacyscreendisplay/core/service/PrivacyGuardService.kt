@@ -38,7 +38,7 @@ class PrivacyGuardService : LifecycleService() {
 
     private lateinit var overlayManager: SystemOverlayManager
     private lateinit var appMonitor: ForegroundAppMonitor
-    private lateinit var faceDetector: FaceDetectorEngine
+    private lateinit var shoulderSurfingEngine: com.app.privacyscreendisplay.core.detector.ShoulderSurfingEngine
     private lateinit var privacyGuardDS: PrivacyGuardLocalDataSource
     private lateinit var protectedAppsDS: ProtectedAppsLocalDataSource
     private lateinit var activityLogDS: com.app.privacyscreendisplay.activitylog.data.datasource.ActivityLogLocalDataSource
@@ -78,7 +78,7 @@ class PrivacyGuardService : LifecycleService() {
         protectedAppsDS = ProtectedAppsLocalDataSource(this)
         activityLogDS = com.app.privacyscreendisplay.activitylog.data.datasource.ActivityLogLocalDataSource(this)
 
-        faceDetector = FaceDetectorEngine(
+        shoulderSurfingEngine = com.app.privacyscreendisplay.core.detector.ShoulderSurfingEngine(
             context = this,
             onShoulderSurfingDetected = { snapshotPath ->
                 if (isProtectionActive) {
@@ -106,13 +106,13 @@ class PrivacyGuardService : LifecycleService() {
                         overlayStyle = selectedOverlayStyle,
                         onDismiss = {
                             overlayManager.hideOverlay()
-                            faceDetector.resetAlert()
+                            shoulderSurfingEngine.resetAlert()
                         }
                     )
                 }
             },
             onShoulderSurfingCleared = {
-                // Blur screen persists until user clicks dismiss button
+                // Privacy overlay persists until user taps dismiss
             }
         )
 
@@ -202,7 +202,7 @@ class PrivacyGuardService : LifecycleService() {
         if (!isProtectionActive || protectedPackages.isEmpty()) {
             if (overlayManager.isShowing()) {
                 overlayManager.hideOverlay()
-                faceDetector.resetAlert()
+                shoulderSurfingEngine.resetAlert()
             }
             disarmCamera()
             return
@@ -232,7 +232,7 @@ class PrivacyGuardService : LifecycleService() {
                     // Automatically hide overlay when protected app is closed or exits foreground
                     if (overlayManager.isShowing()) {
                         overlayManager.hideOverlay()
-                        faceDetector.resetAlert()
+                        shoulderSurfingEngine.resetAlert()
                     }
                     if (isCameraArmed) {
                         disarmCamera()
@@ -246,7 +246,7 @@ class PrivacyGuardService : LifecycleService() {
     private fun armCamera() {
         if (isCameraArmed) return
         try {
-            faceDetector.startDetection(this)
+            shoulderSurfingEngine.startDetection(this)
             isCameraArmed = true
         } catch (e: Exception) {
             e.printStackTrace()
@@ -256,11 +256,11 @@ class PrivacyGuardService : LifecycleService() {
     private fun disarmCamera() {
         if (!isCameraArmed) return
         try {
-            faceDetector.stopDetection()
+            shoulderSurfingEngine.stopDetection()
             isCameraArmed = false
             if (overlayManager.isShowing()) {
                 overlayManager.hideOverlay()
-                faceDetector.resetAlert()
+                shoulderSurfingEngine.resetAlert()
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -271,6 +271,6 @@ class PrivacyGuardService : LifecycleService() {
         super.onDestroy()
         monitorJob?.cancel()
         disarmCamera()
-        faceDetector.release()
+        shoulderSurfingEngine.release()
     }
 }
