@@ -41,6 +41,8 @@ import com.app.privacyscreendisplay.protectedapps.presentation.ui.ProtectedAppsS
 import com.app.privacyscreendisplay.protectedapps.presentation.viewmodel.ProtectedAppsViewModel
 import com.app.privacyscreendisplay.premium.presentation.ui.PremiumPaywallScreen
 import com.app.privacyscreendisplay.premium.presentation.ui.PremiumWaitlistScreen
+import com.app.privacyscreendisplay.settings.presentation.ui.SettingsScreen
+import com.app.privacyscreendisplay.settings.presentation.ui.PrivacyPolicyScreen
 import com.app.privacyscreendisplay.setup.presentation.ui.PermissionCameraScreen
 import com.app.privacyscreendisplay.setup.presentation.ui.PermissionOverlayScreen
 import com.app.privacyscreendisplay.setup.presentation.ui.PermissionSetupIntroScreen
@@ -287,7 +289,11 @@ class MainActivity : ComponentActivity() {
                                         HomeScreen(
                                             viewModel = homeViewModel,
                                             onNavigateToSettings = {
-                                                toastState.show("Opening Settings...", ToastType.INFO)
+                                                if (navController.currentDestination?.route != "settings") {
+                                                    navController.navigate("settings") {
+                                                        launchSingleTop = true
+                                                    }
+                                                }
                                             },
                                             onNavigateToProtectedApps = {
                                                 if (navController.currentDestination?.route != "protected_apps") {
@@ -370,6 +376,40 @@ class MainActivity : ComponentActivity() {
                                             },
                                             onPremiumActivated = {
                                                 // Premium activated state updated
+                                            }
+                                        )
+                                    }
+
+                                    composable("settings") {
+                                        SettingsScreen(
+                                            onNavigateBack = {
+                                                navController.popBackStack()
+                                            },
+                                            onNavigateToPremium = {
+                                                if (navController.currentDestination?.route != "premium_paywall") {
+                                                    navController.navigate("premium_paywall") {
+                                                        launchSingleTop = true
+                                                    }
+                                                }
+                                            },
+                                            onNavigateToPermission = { route ->
+                                                pendingAutoEnableProtection = true
+                                                navController.navigate(route)
+                                            },
+                                            onNavigateToPrivacyPolicy = {
+                                                if (navController.currentDestination?.route != "privacy_policy") {
+                                                    navController.navigate("privacy_policy") {
+                                                        launchSingleTop = true
+                                                    }
+                                                }
+                                            }
+                                        )
+                                    }
+
+                                    composable("privacy_policy") {
+                                        PrivacyPolicyScreen(
+                                            onNavigateBack = {
+                                                navController.popBackStack()
                                             }
                                         )
                                     }
