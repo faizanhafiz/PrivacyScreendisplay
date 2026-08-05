@@ -225,12 +225,7 @@ fun HomeScreenContent(
                         .clip(CircleShape)
                         .background(Color(0xFFFEF3C7))
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Star,
-                        contentDescription = "Upgrade Premium",
-                        tint = Color(0xFFD97706),
-                        modifier = Modifier.size(22.dp)
-                    )
+                    CrownIcon(modifier = Modifier.size(22.dp))
                 }
 
                 Spacer(modifier = Modifier.width(6.dp))
@@ -340,5 +335,42 @@ fun HomeScreenContent(
             overlayStyle = status.selectedOverlayStyle,
             onDismiss = { showProtectionOverlay = false }
         )
+    }
+}
+
+/**
+ * Custom Golden Crown Icon for top bar Premium upgrade button.
+ */
+@Composable
+private fun CrownIcon(modifier: Modifier = Modifier) {
+    androidx.compose.foundation.Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+
+        val goldenBrush = androidx.compose.ui.graphics.Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFFFBBF24),
+                Color(0xFFD97706)
+            )
+        )
+
+        val crownPath = androidx.compose.ui.graphics.Path().apply {
+            moveTo(w * 0.15f, h * 0.35f)
+            lineTo(w * 0.30f, h * 0.65f)
+            lineTo(w * 0.50f, h * 0.22f)
+            lineTo(w * 0.70f, h * 0.65f)
+            lineTo(w * 0.85f, h * 0.35f)
+            lineTo(w * 0.80f, h * 0.82f)
+            cubicTo(
+                w * 0.65f, h * 0.88f,
+                w * 0.35f, h * 0.88f,
+                w * 0.20f, h * 0.82f
+            )
+            close()
+        }
+        drawPath(crownPath, goldenBrush)
+        drawCircle(Color(0xFFFEF08A), radius = w * 0.055f, center = androidx.compose.ui.geometry.Offset(w * 0.15f, h * 0.35f))
+        drawCircle(Color(0xFFFEF08A), radius = w * 0.065f, center = androidx.compose.ui.geometry.Offset(w * 0.50f, h * 0.22f))
+        drawCircle(Color(0xFFFEF08A), radius = w * 0.055f, center = androidx.compose.ui.geometry.Offset(w * 0.85f, h * 0.35f))
     }
 }
