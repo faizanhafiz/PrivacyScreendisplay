@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import java.io.IOException
 
 private val Context.homeDataStore: DataStore<Preferences> by preferencesDataStore(name = "privacy_guard_home_preferences")
@@ -45,6 +46,17 @@ class PrivacyGuardLocalDataSource(
         val SENSITIVITY_LEVEL = stringPreferencesKey("key_sensitivity_level")
         val IS_PREMIUM = booleanPreferencesKey("key_is_premium")
         val PREMIUM_EXPIRATION = longPreferencesKey("key_premium_expiration")
+        val WAITLIST_EMAIL = stringPreferencesKey("key_waitlist_email")
+    }
+
+    val waitlistEmailFlow: Flow<String?> = context.homeDataStore.data.map { preferences ->
+        preferences[Keys.WAITLIST_EMAIL]
+    }
+
+    suspend fun saveWaitlistEmail(email: String) {
+        context.homeDataStore.edit { preferences ->
+            preferences[Keys.WAITLIST_EMAIL] = email
+        }
     }
 
     val protectionStatusFlow: Flow<ProtectionStatus> = combine(

@@ -63,6 +63,7 @@ import kotlinx.coroutines.launch
 fun PremiumPaywallScreen(
     onNavigateBack: () -> Unit,
     onPremiumActivated: () -> Unit,
+    onNavigateToWaitlist: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -293,14 +294,7 @@ fun PremiumPaywallScreen(
 
             // 6. Go Premium Button
             Button(
-                onClick = {
-                    coroutineScope.launch {
-                        localDataSource.setPremiumStatus(true)
-                        toastState.show("Upgraded to Premium successfully!", ToastType.SUCCESS)
-                        onPremiumActivated()
-                        onNavigateBack()
-                    }
-                },
+                onClick = onNavigateToWaitlist,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),

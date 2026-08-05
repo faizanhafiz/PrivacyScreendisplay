@@ -12,6 +12,9 @@ object AdConfig {
     @Volatile
     var isPremiumUser: Boolean = false
 
+    // Optional remote Webhook / API URL for collecting waitlist signup analytics (e.g. Formspree, Discord/Slack Webhook, Firebase API)
+    var WAITLIST_WEBHOOK_URL: String = "https://script.google.com/macros/s/AKfycbyA-CQU8ehPLLqrWxnEGX4jJ7J60D8OV0Oy-Dtvs7pLIQoW1BDupNou820Y3mYHYK_5/exec"
+
     // Toggle this flag to switch between official Test IDs and Production IDs
     const val IS_TEST_MODE = false
 

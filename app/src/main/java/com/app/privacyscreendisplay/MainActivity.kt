@@ -40,6 +40,7 @@ import com.app.privacyscreendisplay.protectedapps.di.ProtectedAppsModule
 import com.app.privacyscreendisplay.protectedapps.presentation.ui.ProtectedAppsScreen
 import com.app.privacyscreendisplay.protectedapps.presentation.viewmodel.ProtectedAppsViewModel
 import com.app.privacyscreendisplay.premium.presentation.ui.PremiumPaywallScreen
+import com.app.privacyscreendisplay.premium.presentation.ui.PremiumWaitlistScreen
 import com.app.privacyscreendisplay.setup.presentation.ui.PermissionCameraScreen
 import com.app.privacyscreendisplay.setup.presentation.ui.PermissionOverlayScreen
 import com.app.privacyscreendisplay.setup.presentation.ui.PermissionSetupIntroScreen
@@ -350,6 +351,20 @@ class MainActivity : ComponentActivity() {
 
                                     composable("premium_paywall") {
                                         PremiumPaywallScreen(
+                                            onNavigateBack = {
+                                                navController.popBackStack()
+                                            },
+                                            onPremiumActivated = {
+                                                // Premium activated state updated
+                                            },
+                                            onNavigateToWaitlist = {
+                                                navController.navigate("premium_waitlist")
+                                            }
+                                        )
+                                    }
+
+                                    composable("premium_waitlist") {
+                                        PremiumWaitlistScreen(
                                             onNavigateBack = {
                                                 navController.popBackStack()
                                             },
