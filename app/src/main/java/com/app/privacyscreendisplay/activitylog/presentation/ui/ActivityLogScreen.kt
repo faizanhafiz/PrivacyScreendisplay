@@ -71,6 +71,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -858,12 +859,25 @@ private fun LogItemCard(
         Spacer(modifier = Modifier.width(14.dp))
 
         Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = item.appName,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF0F172A),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Spacer(modifier = Modifier.height(2.dp))
+
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = item.appName,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A)
+                    text = item.actionText,
+                    fontSize = 13.sp,
+                    color = Color(0xFF475569),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
 
                 Spacer(modifier = Modifier.width(6.dp))
@@ -871,17 +885,10 @@ private fun LogItemCard(
                 Text(
                     text = "• ${item.formattedTime}",
                     fontSize = 12.sp,
-                    color = Color(0xFF64748B)
+                    color = Color(0xFF64748B),
+                    maxLines = 1
                 )
             }
-
-            Spacer(modifier = Modifier.height(2.dp))
-
-            Text(
-                text = item.actionText,
-                fontSize = 13.sp,
-                color = Color(0xFF475569)
-            )
         }
 
         Spacer(modifier = Modifier.width(8.dp))

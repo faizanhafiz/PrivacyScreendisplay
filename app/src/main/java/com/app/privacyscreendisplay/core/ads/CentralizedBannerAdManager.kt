@@ -26,6 +26,7 @@ object CentralizedBannerAdManager {
 
     private const val TAG = "CentralizedBannerAd"
     private const val REFRESH_INTERVAL_MS = 45_000L // 45 seconds policy compliant interval
+    private const val RETRY_INTERVAL_MS = 15_000L // 15 seconds retry on error
 
     private var sharedAdView: AdView? = null
 
@@ -50,26 +51,45 @@ object CentralizedBannerAdManager {
         }
     }
 
+    private fun createAdListener(): AdListener {
+        return object : AdListener() {
+            override fun onAdLoaded() {
+                super.onAdLoaded()
+                _isAdLoadedState.value = true
+                _isLoadingState.value = false
+                Log.i(TAG, "SUCCESS: Centralized Banner Ad loaded successfully! [UnitID=${AdConfig.bannerAdUnitId}]")
+            }
+
+            override fun onAdFailedToLoad(error: LoadAdError) {
+                super.onAdFailedToLoad(error)
+                _isAdLoadedState.value = false
+                _isLoadingState.value = false
+                val reason = when (error.code) {
+                    0 -> "Internal Error (0)"
+                    1 -> "Invalid Request / Ad Unit ID (1)"
+                    2 -> "Network Error (2)"
+                    3 -> "No Fill / Ad Inventory Unavailable (3)"
+                    else -> "Error Code ${error.code}"
+                }
+                Log.e(TAG, "FAILURE: Banner Ad failed to load! Reason: $reason | Message: ${error.message} | Domain: ${error.domain} [UnitID=${AdConfig.bannerAdUnitId}]")
+            }
+
+            override fun onAdOpened() {
+                super.onAdOpened()
+                Log.d(TAG, "Banner Ad clicked/opened by user.")
+            }
+        }
+    }
+
     private fun setupSharedAdView() {
         val ctx = appContext ?: return
         if (sharedAdView == null) {
+            Log.i(TAG, "Initializing Shared AdView (UnitID=${AdConfig.bannerAdUnitId}, TestMode=${AdConfig.IS_TEST_MODE})")
             sharedAdView = AdView(ctx).apply {
                 setAdSize(AdSize.BANNER)
                 setAdUnitId(AdConfig.bannerAdUnitId)
-                adListener = object : AdListener() {
-                    override fun onAdLoaded() {
-                        super.onAdLoaded()
-                        _isAdLoadedState.value = true
-                        _isLoadingState.value = false
-                        Log.d(TAG, "Centralized Banner Ad loaded successfully.")
-                    }
-
-                    override fun onAdFailedToLoad(error: LoadAdError) {
-                        super.onAdFailedToLoad(error)
-                        _isLoadingState.value = false
-                        Log.e(TAG, "Centralized Banner Ad failed to load (code=${error.code}): ${error.message}")
-                    }
-                }
+                adListener = createAdListener()
+                Log.d(TAG, "Loading initial Banner Ad request...")
                 loadAd(AdManager.buildAdRequest())
             }
         }
@@ -79,7 +99,9 @@ object CentralizedBannerAdManager {
         autoRefreshJob?.cancel()
         autoRefreshJob = CoroutineScope(Dispatchers.Main).launch {
             while (true) {
-                delay(REFRESH_INTERVAL_MS)
+                val isLoaded = _isAdLoadedState.value
+                val delayMs = if (isLoaded) REFRESH_INTERVAL_MS else RETRY_INTERVAL_MS
+                delay(delayMs)
                 refreshAd()
             }
         }
@@ -88,7 +110,8 @@ object CentralizedBannerAdManager {
     private fun refreshAd() {
         if (AdConfig.isPremiumUser) return
         sharedAdView?.let { view ->
-            Log.d(TAG, "Executing 45s policy-compliant background Banner Ad refresh.")
+            val status = if (_isAdLoadedState.value) "Periodic 45s refresh" else "15s error retry"
+            Log.d(TAG, "Executing Banner Ad fetch ($status)...")
             view.loadAd(AdManager.buildAdRequest())
         }
     }
@@ -98,18 +121,8 @@ object CentralizedBannerAdManager {
         val view = sharedAdView ?: AdView(context.applicationContext).apply {
             setAdSize(AdSize.BANNER)
             setAdUnitId(AdConfig.bannerAdUnitId)
-            adListener = object : AdListener() {
-                override fun onAdLoaded() {
-                    super.onAdLoaded()
-                    _isAdLoadedState.value = true
-                    _isLoadingState.value = false
-                }
-
-                override fun onAdFailedToLoad(error: LoadAdError) {
-                    super.onAdFailedToLoad(error)
-                    _isLoadingState.value = false
-                }
-            }
+            adListener = createAdListener()
+            Log.d(TAG, "Loading Banner Ad request in getOrCreateAdView...")
             loadAd(AdManager.buildAdRequest())
             sharedAdView = this
         }

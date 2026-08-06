@@ -219,16 +219,18 @@ fun HomeScreenContent(
                 }
 
                 // Premium Upgrade Button Action
-                IconButton(
-                    onClick = onPremiumClick,
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(Color(0xFFFEF3C7))
-                ) {
-                    CrownIcon(modifier = Modifier.size(22.dp))
-                }
+                if (!status.isPremiumSubscriber) {
+                    IconButton(
+                        onClick = onPremiumClick,
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(Color(0xFFFEF3C7))
+                    ) {
+                        CrownIcon(modifier = Modifier.size(22.dp))
+                    }
 
-                Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                }
 
                 // Settings Action Button
                 IconButton(onClick = onSettingsClick) {

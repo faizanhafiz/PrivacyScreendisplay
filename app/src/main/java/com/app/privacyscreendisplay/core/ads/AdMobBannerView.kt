@@ -9,6 +9,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -28,6 +29,7 @@ fun AdMobBannerView(
 
     val context = LocalContext.current
     val isLoading by CentralizedBannerAdManager.isLoadingState.collectAsState()
+    val isAdLoaded by CentralizedBannerAdManager.isAdLoadedState.collectAsState()
 
     Box(
         modifier = modifier
@@ -35,18 +37,44 @@ fun AdMobBannerView(
             .height(72.dp),
         contentAlignment = Alignment.Center
     ) {
-        if (isLoading) {
+        if (isLoading || !isAdLoaded) {
             AdSkeletonShimmer(modifier = Modifier.fillMaxSize())
         }
 
-        // Single Centralized AdMob Banner View shared across screens
+        // Single Centralized AdMob Banner View shared across screens, centered in container
         AndroidView(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .graphicsLayer { alpha = if (isAdLoaded) 1f else 0f },
             factory = { ctx ->
-                CentralizedBannerAdManager.getOrCreateAdView(ctx)
+                android.widget.FrameLayout(ctx).apply {
+                    layoutParams = android.view.ViewGroup.LayoutParams(
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                    val adView = CentralizedBannerAdManager.getOrCreateAdView(ctx)
+                    val lp = android.widget.FrameLayout.LayoutParams(
+                        android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                        android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        gravity = android.view.Gravity.CENTER
+                    }
+                    addView(adView, lp)
+                }
             },
-            update = { view ->
-                // Shared AdView is automatically updated by CentralizedBannerAdManager
+            update = { containerView ->
+                val adView = CentralizedBannerAdManager.getOrCreateAdView(containerView.context)
+                if (adView.parent != containerView) {
+                    (adView.parent as? android.view.ViewGroup)?.removeView(adView)
+                    val lp = android.widget.FrameLayout.LayoutParams(
+                        android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                        android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        gravity = android.view.Gravity.CENTER
+                    }
+                    containerView.removeAllViews()
+                    containerView.addView(adView, lp)
+                }
             }
         )
     }

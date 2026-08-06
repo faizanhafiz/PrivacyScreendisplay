@@ -30,17 +30,15 @@ object AdManager {
             return
         }
 
-        // Configure test devices if in test mode
-        if (AdConfig.IS_TEST_MODE) {
-            val testDeviceIds = listOf(
-                AdRequest.DEVICE_ID_EMULATOR,
-                "A9FC6798D874A11556498DD641F83D7B" // User physical test device ID from logcat
-            )
-            val configuration = RequestConfiguration.Builder()
-                .setTestDeviceIds(testDeviceIds)
-                .build()
-            MobileAds.setRequestConfiguration(configuration)
-        }
+        // Configure test devices to ensure test ads are served reliably during development
+        val testDeviceIds = listOf(
+            AdRequest.DEVICE_ID_EMULATOR,
+//            "A9FC6798D874A11556498DD641F83D7H" // Physical test device ID
+        )
+        val configuration = RequestConfiguration.Builder()
+            .setTestDeviceIds(testDeviceIds)
+            .build()
+        MobileAds.setRequestConfiguration(configuration)
 
         // Initialize Google Mobile Ads SDK (also initializes Meta Audience Network mediation)
         MobileAds.initialize(context) { initializationStatus ->
