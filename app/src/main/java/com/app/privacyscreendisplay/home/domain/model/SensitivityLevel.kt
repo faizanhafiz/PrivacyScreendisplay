@@ -22,20 +22,20 @@ enum class SensitivityLevel(
         confidenceThreshold = 0.85f,
         scanDurationMs = 1500L,
         pauseDurationMs = 5000L,
-        subtitleDescription = "Eco Mode • Checks every 5s (Minimizes green dot)"
+        subtitleDescription = "Eco Mode"
     ),
     MEDIUM(
         displayName = "Medium",
         confidenceThreshold = 0.70f,
         scanDurationMs = 2000L,
         pauseDurationMs = 3000L,
-        subtitleDescription = "Balanced • Checks every 3s (Standard protection)"
+        subtitleDescription = "Balanced"
     ),
     HIGH(
         displayName = "High",
         confidenceThreshold = 0.50f,
         scanDurationMs = Long.MAX_VALUE,
         pauseDurationMs = 0L,
-        subtitleDescription = "Real-time • Continuous camera scan"
+        subtitleDescription = "Real-time"
     )
 }
