@@ -129,7 +129,7 @@ fun PrivacyPolicyScreen(
 
             PolicySection(
                 title = "1. Information We Process",
-                content = "Privacy Guard AI uses your device front camera solely to perform real-time optical detection of additional faces looking over your shoulder ('shoulder surfing'). Camera frames are processed strictly in RAM using on-device machine learning models and are immediately discarded. We do not store, record, upload, or share any imagery or video frames."
+                content = "Shoulder Surfing Guard AI uses your device front camera solely to perform real-time optical detection of additional faces looking over your shoulder ('shoulder surfing'). Camera frames are processed strictly in RAM using on-device machine learning models and are immediately discarded. We do not store, record, upload, or share any imagery or video frames."
             )
 
             PolicySection(

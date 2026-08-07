@@ -47,7 +47,7 @@ class PrivacyGuardService : LifecycleService() {
     private var protectedPackages = setOf<String>()
     private var isProtectionActive = false
     private var selectedOverlayStyle = OverlayStyle.BLUR
-    private var selectedSensitivity = SensitivityLevel.MEDIUM
+    private var selectedSensitivity = SensitivityLevel.HIGH
     private var isCameraArmed = false
 
     companion object {

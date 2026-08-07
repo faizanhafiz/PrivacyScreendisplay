@@ -18,7 +18,7 @@ enum class SensitivityLevel(
     val subtitleDescription: String
 ) {
     LOW(
-        displayName = "Low (Eco)",
+        displayName = "Low",
         confidenceThreshold = 0.85f,
         scanDurationMs = 1500L,
         pauseDurationMs = 5000L,

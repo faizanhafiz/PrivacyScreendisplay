@@ -77,7 +77,7 @@ fun ActivityTimelinePreviewCard(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Activity Log Today",
+                        text = "Activity Log",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground

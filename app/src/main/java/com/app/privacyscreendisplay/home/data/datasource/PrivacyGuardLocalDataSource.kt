@@ -72,7 +72,7 @@ class PrivacyGuardLocalDataSource(
     ) { preferences: Preferences, _: Unit, logs: List<ActivityLogItem> ->
         val isActivePref = preferences[Keys.PROTECTION_ACTIVE] ?: true
         val styleName = preferences[Keys.OVERLAY_STYLE] ?: OverlayStyle.BLUR.name
-        val sensitivityName = preferences[Keys.SENSITIVITY_LEVEL] ?: SensitivityLevel.MEDIUM.name
+        val sensitivityName = preferences[Keys.SENSITIVITY_LEVEL] ?: SensitivityLevel.HIGH.name
         val isPremiumPersisted = preferences[Keys.IS_PREMIUM] ?: false
         val expirationTimestamp = preferences[Keys.PREMIUM_EXPIRATION] ?: 0L
         val is24hActive = System.currentTimeMillis() < expirationTimestamp
@@ -97,7 +97,7 @@ class PrivacyGuardLocalDataSource(
         val sensitivity = try {
             SensitivityLevel.valueOf(sensitivityName)
         } catch (_: Exception) {
-            SensitivityLevel.MEDIUM
+            SensitivityLevel.HIGH
         }
 
         // Sync global AdConfig state with effective subscription entitlement

@@ -13,7 +13,7 @@ package com.app.privacyscreendisplay.home.domain.model
 data class ProtectionStatus(
     val isProtectionActive: Boolean = true,
     val selectedOverlayStyle: OverlayStyle = OverlayStyle.BLUR,
-    val sensitivity: SensitivityLevel = SensitivityLevel.MEDIUM,
+    val sensitivity: SensitivityLevel = SensitivityLevel.HIGH,
     val protectedAppsCount: Int = 12,
     val detectionsToday: Int = 0,
     val isPremiumSubscriber: Boolean = false,

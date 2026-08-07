@@ -94,7 +94,7 @@ fun SettingsScreen(
         initial = com.app.privacyscreendisplay.home.domain.model.ProtectionStatus(
             isProtectionActive = true,
             selectedOverlayStyle = com.app.privacyscreendisplay.home.domain.model.OverlayStyle.BLUR,
-            sensitivity = SensitivityLevel.MEDIUM,
+            sensitivity = SensitivityLevel.HIGH,
             protectedAppsCount = 0,
             detectionsToday = 0,
             isPremiumSubscriber = AdConfig.isPremiumUser,

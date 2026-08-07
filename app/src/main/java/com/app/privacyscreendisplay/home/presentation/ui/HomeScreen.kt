@@ -203,8 +203,8 @@ fun HomeScreenContent(
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "Privacy Guard",
-                            fontSize = 22.sp,
+                            text = "Shoulder Surfing Guard",
+                            fontSize = 20.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = MaterialTheme.colorScheme.onBackground
                         )
@@ -309,9 +309,9 @@ fun HomeScreenContent(
                     badgeText = status.sensitivity.displayName,
                     onClick = {
                         val nextSensitivity = when (status.sensitivity) {
-                            SensitivityLevel.LOW -> SensitivityLevel.MEDIUM
-                            SensitivityLevel.MEDIUM -> SensitivityLevel.HIGH
-                            SensitivityLevel.HIGH -> SensitivityLevel.LOW
+                            SensitivityLevel.HIGH -> SensitivityLevel.MEDIUM
+                            SensitivityLevel.MEDIUM -> SensitivityLevel.LOW
+                            SensitivityLevel.LOW -> SensitivityLevel.HIGH
                         }
                         onSensitivitySelected(nextSensitivity)
                     },
