@@ -1,15 +1,18 @@
 package com.app.privacyscreendisplay.core.ads.config
 
-import com.app.privacyscreendisplay.BuildConfig
+
+import com.google.android.datatransport.BuildConfig
 
 /**
  * AdMob + Meta Mediation Ad Unit Configuration Holder.
  * Automatically resolves between Official AdMob Test Ad Unit IDs (in Debug builds)
- * and Production AdMob Ad Unit IDs (in Release builds) without manual flags.
+ * and Live Production AdMob Ad Unit IDs (in Release builds).
  */
 object AdConfig {
 
     const val APP_ID = "ca-app-pub-7188839988485075~4446233778"
+
+    const val is_test = true
 
     @Volatile
     var isPremiumUser: Boolean = false
@@ -31,17 +34,17 @@ object AdConfig {
     private const val PROD_APP_OPEN_AD_UNIT_ID = "ca-app-pub-7188839988485075/9506988764"
 
     val BANNER_AD_UNIT_ID: String
-        get() = if (BuildConfig.DEBUG) TEST_BANNER_AD_UNIT_ID else PROD_BANNER_AD_UNIT_ID
+        get() = if (is_test) TEST_BANNER_AD_UNIT_ID else PROD_BANNER_AD_UNIT_ID
 
     val NATIVE_AD_UNIT_ID: String
-        get() = if (BuildConfig.DEBUG) TEST_NATIVE_AD_UNIT_ID else PROD_NATIVE_AD_UNIT_ID
+        get() = if (is_test) TEST_NATIVE_AD_UNIT_ID else PROD_NATIVE_AD_UNIT_ID
 
     val INTERSTITIAL_AD_UNIT_ID: String
-        get() = if (BuildConfig.DEBUG) TEST_INTERSTITIAL_AD_UNIT_ID else PROD_INTERSTITIAL_AD_UNIT_ID
+        get() = if (is_test) TEST_INTERSTITIAL_AD_UNIT_ID else PROD_INTERSTITIAL_AD_UNIT_ID
 
     val REWARDED_AD_UNIT_ID: String
-        get() = if (BuildConfig.DEBUG) TEST_REWARDED_AD_UNIT_ID else PROD_REWARDED_AD_UNIT_ID
+        get() = if (is_test) TEST_REWARDED_AD_UNIT_ID else PROD_REWARDED_AD_UNIT_ID
 
     val APP_OPEN_AD_UNIT_ID: String
-        get() = if (BuildConfig.DEBUG) TEST_APP_OPEN_AD_UNIT_ID else PROD_APP_OPEN_AD_UNIT_ID
+        get() = if (is_test) TEST_APP_OPEN_AD_UNIT_ID else PROD_APP_OPEN_AD_UNIT_ID
 }

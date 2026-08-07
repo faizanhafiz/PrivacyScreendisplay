@@ -29,9 +29,11 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /**
- * Production Centralized Interstitial Ad Manager.
- * Features: Background preloading, immediate refill after show, 4-second loading rule with
- * background continuation, late-fill caching, exponential backoff retries, and thread safety.
+ * Preloaded Interstitial Ad Manager.
+ * Enforces the strict 4-second loading rule:
+ * - If loaded within 4 seconds: shows ad immediately.
+ * - If NOT loaded within 4 seconds: dismisses loading indicator, proceeds UI action,
+ *   and continues loading in background without cancelling the request.
  */
 object InterstitialAdManager {
 
@@ -106,7 +108,7 @@ object InterstitialAdManager {
                     retryJob?.cancel()
                     retryJob = scope.launch {
                         delay(nextDelay)
-                        preload(context)
+                        preload(activity)
                     }
                 }
             }
@@ -171,33 +173,25 @@ object InterstitialAdManager {
         ad: InterstitialAd,
         onAdDismissed: () -> Unit
     ) {
-        _adState.value = AdState.SHOWING
         ad.fullScreenContentCallback = object : FullScreenContentCallback() {
             override fun onAdDismissedFullScreenContent() {
                 _adState.value = AdState.DISMISSED
-                cachedAd = null
+                AdLogger.i(TAG, "Interstitial Ad dismissed by user.")
                 onAdDismissed()
-                preload(context)
             }
 
-            override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+            override fun onAdFailedToShowFullScreenContent(error: AdError) {
                 _adState.value = AdState.DISMISSED
-                AdLogger.e(TAG, "Interstitial Ad failed to show: ${adError.message}")
-                cachedAd = null
+                AdLogger.e(TAG, "Interstitial Ad failed to show: ${error.message}")
                 onAdDismissed()
-                preload(context)
+            }
+
+            override fun onAdShowedFullScreenContent() {
+                _adState.value = AdState.SHOWING
+                AdLogger.i(TAG, "Interstitial Ad showing on screen.")
             }
         }
         ad.show(activity)
-    }
-
-    private fun Context.findActivity(): Activity? {
-        var current = this
-        while (current is ContextWrapper) {
-            if (current is Activity) return current
-            current = current.baseContext
-        }
-        return null
     }
 
     private fun parseLoadErrorCode(code: Int): String {
@@ -210,11 +204,14 @@ object InterstitialAdManager {
         }
     }
 
-    fun destroy() {
-        retryJob?.cancel()
-        retryJob = null
-        cachedAd = null
-        _isLoadingState.value = false
-        _adState.value = AdState.DESTROYED
+    fun isAdAvailable(): Boolean = cachedAd != null
+}
+
+private fun Context.findActivity(): Activity? {
+    var ctx = this
+    while (ctx is ContextWrapper) {
+        if (ctx is Activity) return ctx
+        ctx = ctx.baseContext
     }
+    return null
 }

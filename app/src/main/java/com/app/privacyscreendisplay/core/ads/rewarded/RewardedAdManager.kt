@@ -30,9 +30,11 @@ import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Production Centralized Rewarded Video Ad Manager.
- * Features: Immediate refill after show, 4-second loading rule with background continuation,
- * single reward guarantee, thread safety, and exponential backoff retries.
+ * Preloaded Rewarded Ad Manager.
+ * Enforces single-reward guarantee and 4-second loading timeout rule:
+ * - If loaded within 4 seconds: shows ad and grants reward upon completion.
+ * - If NOT loaded within 4 seconds: dismisses loading indicator, grants reward fallback,
+ *   and continues loading in background without cancelling request.
  */
 object RewardedAdManager {
 
@@ -107,7 +109,7 @@ object RewardedAdManager {
                     retryJob?.cancel()
                     retryJob = scope.launch {
                         delay(nextDelay)
-                        preload(context)
+                        preload(activity)
                     }
                 }
             }
@@ -175,47 +177,36 @@ object RewardedAdManager {
         onUserEarnedReward: () -> Unit,
         onAdDismissedOrFailed: () -> Unit
     ) {
-        val rewardGranted = AtomicBoolean(false)
-        _adState.value = AdState.SHOWING
-
-        fun safeGrantReward() {
-            if (rewardGranted.compareAndSet(false, true)) {
-                AdLogger.i(TAG, "Reward granted safely to user.")
-                onUserEarnedReward()
-            }
-        }
+        val hasRewardedUser = AtomicBoolean(false)
 
         ad.fullScreenContentCallback = object : FullScreenContentCallback() {
             override fun onAdDismissedFullScreenContent() {
                 _adState.value = AdState.DISMISSED
-                cachedAd = null
+                AdLogger.i(TAG, "Rewarded Ad dismissed by user.")
                 onAdDismissedOrFailed()
-                preload(context)
             }
 
-            override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+            override fun onAdFailedToShowFullScreenContent(error: AdError) {
                 _adState.value = AdState.DISMISSED
-                AdLogger.e(TAG, "Rewarded Ad failed to show: ${adError.message}")
-                safeGrantReward()
-                cachedAd = null
+                AdLogger.e(TAG, "Rewarded Ad failed to show: ${error.message}")
+                if (hasRewardedUser.compareAndSet(false, true)) {
+                    onUserEarnedReward()
+                }
                 onAdDismissedOrFailed()
-                preload(context)
+            }
+
+            override fun onAdShowedFullScreenContent() {
+                _adState.value = AdState.SHOWING
+                AdLogger.i(TAG, "Rewarded Ad showing on screen.")
             }
         }
 
         ad.show(activity) { rewardItem ->
-            AdLogger.i(TAG, "User completed video. Amount: ${rewardItem.amount} ${rewardItem.type}")
-            safeGrantReward()
+            AdLogger.i(TAG, "User earned reward: ${rewardItem.amount} ${rewardItem.type}")
+            if (hasRewardedUser.compareAndSet(false, true)) {
+                onUserEarnedReward()
+            }
         }
-    }
-
-    private fun Context.findActivity(): Activity? {
-        var current = this
-        while (current is ContextWrapper) {
-            if (current is Activity) return current
-            current = current.baseContext
-        }
-        return null
     }
 
     private fun parseLoadErrorCode(code: Int): String {
@@ -228,11 +219,14 @@ object RewardedAdManager {
         }
     }
 
-    fun destroy() {
-        retryJob?.cancel()
-        retryJob = null
-        cachedAd = null
-        _isLoadingState.value = false
-        _adState.value = AdState.DESTROYED
+    fun isAdAvailable(): Boolean = cachedAd != null
+}
+
+private fun Context.findActivity(): Activity? {
+    var ctx = this
+    while (ctx is ContextWrapper) {
+        if (ctx is Activity) return ctx
+        ctx = ctx.baseContext
     }
+    return null
 }

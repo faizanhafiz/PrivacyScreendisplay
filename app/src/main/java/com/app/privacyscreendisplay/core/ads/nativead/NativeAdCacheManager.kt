@@ -11,9 +11,9 @@ import com.google.android.gms.ads.AdListener
 import com.google.android.gms.ads.AdLoader
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.LoadAdError
+import com.google.android.gms.ads.VideoOptions
 import com.google.android.gms.ads.nativead.NativeAd
 import com.google.android.gms.ads.nativead.NativeAdOptions
-import com.google.android.gms.ads.VideoOptions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -27,16 +27,17 @@ import kotlinx.coroutines.sync.withLock
 
 /**
  * Centralized Native Ad Cache Manager.
- * Maintains pre-loaded shared NativeAd instances, handles auto-refreshes (40s),
- * exponential retries, and clean native ad destruction.
+ * Preloads and caches a single NativeAd instance for instant presentation in Bottom Sheets & UI slots.
+ * Auto-refreshes every 40s and cleans up memory on destroy.
  */
 object NativeAdCacheManager {
 
     private const val TAG = "NativeAdCacheManager"
-    private const val REFRESH_INTERVAL_MS = 40_000L
+    private const val AUTO_REFRESH_INTERVAL_MS = 40_000L
 
     private val mutex = Mutex()
     private val retryPolicy = AdRetryPolicy()
+    private val scope = CoroutineScope(Dispatchers.Main)
 
     private val _nativeAdState = MutableStateFlow<NativeAd?>(null)
     val nativeAdState: StateFlow<NativeAd?> = _nativeAdState.asStateFlow()
@@ -48,7 +49,6 @@ object NativeAdCacheManager {
     val isLoadingState: StateFlow<Boolean> = _isLoadingState.asStateFlow()
 
     private var autoRefreshJob: Job? = null
-    private val scope = CoroutineScope(Dispatchers.Main)
     private var lastContext: Context? = null
 
     fun preloadNativeAd(context: Context) {
@@ -102,13 +102,7 @@ object NativeAdCacheManager {
                     _isLoadingState.value = false
                     _adState.value = AdState.RETRYING
 
-                    val reason = when (error.code) {
-                        0 -> "Internal Error (0)"
-                        1 -> "Invalid Request (1)"
-                        2 -> "Network Error (2)"
-                        3 -> "No Fill (3)"
-                        else -> "Error Code ${error.code}"
-                    }
+                    val reason = parseLoadErrorCode(error.code)
                     AdLogger.e(TAG, "FAILURE: Native Ad failed to load! Reason: $reason | Msg: ${error.message}")
 
                     val nextDelay = retryPolicy.getNextDelayMs()
@@ -129,9 +123,19 @@ object NativeAdCacheManager {
     private fun scheduleAutoRefresh(context: Context) {
         autoRefreshJob?.cancel()
         autoRefreshJob = scope.launch {
-            delay(REFRESH_INTERVAL_MS)
-            AdLogger.i(TAG, "Auto-refreshing Native Ad after 40s interval...")
-            preloadNativeAd(context)
+            delay(AUTO_REFRESH_INTERVAL_MS)
+            AdLogger.i(TAG, "Auto-refreshing Centralized Native Ad after 40s interval...")
+            fetchAdInternal(context)
+        }
+    }
+
+    private fun parseLoadErrorCode(code: Int): String {
+        return when (code) {
+            0 -> "Internal Error (0)"
+            1 -> "Invalid Request (1)"
+            2 -> "Network Error (2)"
+            3 -> "No Fill / Inventory Unavailable (3)"
+            else -> "Error Code $code"
         }
     }
 

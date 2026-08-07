@@ -13,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -27,8 +28,9 @@ import com.google.android.gms.ads.AdView
 import com.google.android.gms.ads.LoadAdError
 
 /**
- * Jetpack Compose wrapper rendering AdMob + Meta Mediation Live Banner Ads.
- * Uses a fixed 60.dp height container to prevent UI layout shifts/shaking.
+ * Jetpack Compose wrapper rendering AdMob Live Banner Ads.
+ * Displays wave skeleton continuous shimmer while ad is loading/retrying, and continuously
+ * retries fetching banner ads in background every 15s on failure.
  */
 @Composable
 fun AdMobBannerView(
@@ -38,7 +40,6 @@ fun AdMobBannerView(
 
     val context = LocalContext.current
     var isAdLoaded by remember { mutableStateOf(false) }
-    var isAdFailed by remember { mutableStateOf(false) }
     var adViewInstance by remember { mutableStateOf<AdView?>(null) }
 
     DisposableEffect(Unit) {
@@ -48,47 +49,59 @@ fun AdMobBannerView(
         }
     }
 
-    // Reserved fixed 60.dp height container to eliminate UI layout shifts/shaking
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(60.dp),
         contentAlignment = Alignment.Center
     ) {
-        if (!isAdLoaded && !isAdFailed) {
+        // Continuously show wave skeleton shimmer until banner ad is loaded
+        if (!isAdLoaded) {
             AdSkeletonShimmer(modifier = Modifier.fillMaxSize())
         }
 
         AndroidView(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(60.dp),
+                .height(60.dp)
+                .graphicsLayer { alpha = if (isAdLoaded) 1f else 0f },
             factory = { ctx ->
                 AdView(ctx).apply {
                     setAdSize(getAdaptiveAdSize(ctx))
                     setAdUnitId(AdConfig.BANNER_AD_UNIT_ID)
                     onPaidEventListener = AdRevenueTracker("Banner", AdConfig.BANNER_AD_UNIT_ID) { responseInfo }
-                    adListener = object : AdListener() {
-                        override fun onAdLoaded() {
-                            isAdLoaded = true
-                            isAdFailed = false
-                            AdLogger.i("AdMobBannerView", "SUCCESS: Banner Ad loaded successfully!")
-                        }
 
-                        override fun onAdFailedToLoad(error: LoadAdError) {
-                            isAdLoaded = false
-                            isAdFailed = true
-                            val reason = when (error.code) {
-                                0 -> "Internal Error (0)"
-                                1 -> "Invalid Request (1)"
-                                2 -> "Network Error (2)"
-                                3 -> "No Fill (3)"
-                                else -> "Error Code ${error.code}"
+                    fun loadBannerWithRetry() {
+                        adListener = object : AdListener() {
+                            override fun onAdLoaded() {
+                                isAdLoaded = true
+                                AdLogger.i("AdMobBannerView", "SUCCESS: Banner Ad loaded! [UnitID=${AdConfig.BANNER_AD_UNIT_ID}]")
                             }
-                            AdLogger.e("AdMobBannerView", "FAILURE: Banner Ad failed to load! Reason: $reason | Msg: ${error.message}")
+
+                            override fun onAdFailedToLoad(error: LoadAdError) {
+                                isAdLoaded = false
+                                val reason = when (error.code) {
+                                    0 -> "Internal Error (0)"
+                                    1 -> "Invalid Request (1)"
+                                    2 -> "Network Error (2)"
+                                    3 -> "No Fill (3)"
+                                    else -> "Error Code ${error.code}"
+                                }
+                                AdLogger.e("AdMobBannerView", "FAILURE: Banner Ad failed to load! Reason: $reason | Msg: ${error.message}")
+
+                                // Continuously retry loading banner ad after 15s delay while wave skeleton remains visible
+                                postDelayed({
+                                    if (!isAdLoaded) {
+                                        AdLogger.i("AdMobBannerView", "Continuously retrying Banner Ad load after 15s delay...")
+                                        loadBannerWithRetry()
+                                    }
+                                }, 15_000L)
+                            }
                         }
+                        loadAd(AdRequest.Builder().build())
                     }
-                    loadAd(AdRequest.Builder().build())
+
+                    loadBannerWithRetry()
                     adViewInstance = this
                 }
             }

@@ -142,8 +142,8 @@ class PrivacyGuardLocalDataSource(
     }
 
     suspend fun grant24HourPremium() {
-        // Testing mode: 2 minutes duration (2 * 60 * 1000L)
-        val expirationTime = System.currentTimeMillis() + (2 * 60 * 1000L)
+        // Premium duration: 24 hours (24 * 60 * 60 * 1000L)
+        val expirationTime = System.currentTimeMillis() + (24 * 60 * 60 * 1000L)
         context.homeDataStore.edit { preferences ->
             preferences[Keys.PREMIUM_EXPIRATION] = expirationTime
         }
