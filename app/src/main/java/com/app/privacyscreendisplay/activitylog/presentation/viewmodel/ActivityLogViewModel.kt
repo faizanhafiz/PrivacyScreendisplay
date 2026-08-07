@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.app.privacyscreendisplay.activitylog.data.repository.ActivityLogRepository
 import com.app.privacyscreendisplay.activitylog.domain.model.ActivityLogItem
-import com.app.privacyscreendisplay.core.ads.AdConfig
+import com.app.privacyscreendisplay.core.ads.config.AdConfig
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

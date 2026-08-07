@@ -1,4 +1,4 @@
-package com.app.privacyscreendisplay.core.ads
+package com.app.privacyscreendisplay.core.ads.ui
 
 import android.view.Gravity
 import android.view.View
@@ -24,16 +24,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.app.privacyscreendisplay.core.ads.config.AdConfig
+import com.app.privacyscreendisplay.core.ads.nativead.NativeAdCacheManager
 import com.app.privacyscreendisplay.core.ui.components.AdSkeletonShimmer
 import com.google.android.gms.ads.nativead.MediaView
 import com.google.android.gms.ads.nativead.NativeAdView
 
 /**
- * Jetpack Compose wrapper rendering Google AdMob + Meta Mediation Live Native Ads.
- * Uses CentralizedNativeAdManager to share a single native ad across screen navigations,
- * preventing policy violations and auto-refreshing every 40 seconds.
- * Binds MediaView to comply with AdMob Native Ad Validator policy.
- * Provides fallback UI if ad fails to load.
+ * Jetpack Compose wrapper rendering AdMob + Meta Mediation Live Native Ads.
+ * Uses NativeAdCacheManager to share pre-loaded native ads safely across screens.
  */
 @Composable
 fun AdMobNativeAdView(
@@ -44,13 +43,14 @@ fun AdMobNativeAdView(
 
     val context = LocalContext.current
     LaunchedEffect(Unit) {
-        CentralizedNativeAdManager.initialize(context)
+        NativeAdCacheManager.preloadNativeAd(context)
     }
 
-    val currentAd by CentralizedNativeAdManager.nativeAdState.collectAsState()
-    val isLoading by CentralizedNativeAdManager.isLoadingState.collectAsState()
+    val currentAd by NativeAdCacheManager.nativeAdState.collectAsState()
+    val isLoading by NativeAdCacheManager.isLoadingState.collectAsState()
 
-    if (isLoading || currentAd == null) {
+    val ad = currentAd
+    if (isLoading || ad == null) {
         AdSkeletonShimmer(modifier = modifier.height(72.dp))
     } else {
         Box(
@@ -92,7 +92,6 @@ fun AdMobNativeAdView(
                         layoutParams = LinearLayout.LayoutParams(iconSizePx, iconSizePx)
                     }
 
-                    // 120x120dp MediaView bound to adView.mediaView to comply with AdMob Validator minimum video size policy
                     val minMediaPx = (120 * density).toInt()
                     val mediaView = MediaView(ctx).apply {
                         layoutParams = LinearLayout.LayoutParams(minMediaPx, minMediaPx)
@@ -158,25 +157,23 @@ fun AdMobNativeAdView(
                     adView
                 },
                 update = { adView ->
-                    val ad = currentAd
-                    if (ad != null) {
-                        (adView.headlineView as? TextView)?.text = ad.headline
-                        (adView.bodyView as? TextView)?.text = ad.body ?: ""
-                        (adView.callToActionView as? Button)?.text = ad.callToAction ?: "Install"
+                    (adView.headlineView as? TextView)?.text = ad.headline
+                    (adView.bodyView as? TextView)?.text = ad.body ?: ""
+                    (adView.callToActionView as? Button)?.text = ad.callToAction ?: "Install"
 
-                        if (ad.icon != null) {
-                            (adView.iconView as? ImageView)?.setImageDrawable(ad.icon?.drawable)
-                            adView.iconView?.visibility = View.VISIBLE
-                        } else {
-                            adView.iconView?.visibility = View.GONE
-                        }
-
-                        adView.setNativeAd(ad)
-                        adView.visibility = View.VISIBLE
-                        onAdLoaded()
+                    if (ad.icon != null) {
+                        (adView.iconView as? ImageView)?.setImageDrawable(ad.icon?.drawable)
+                        adView.iconView?.visibility = View.VISIBLE
                     } else {
-                        adView.visibility = View.INVISIBLE
+                        adView.iconView?.visibility = View.GONE
                     }
+
+                    val hasMedia = ad.mediaContent != null && (ad.mediaContent?.hasVideoContent() == true || ad.mediaContent?.mainImage != null)
+                    adView.mediaView?.visibility = if (hasMedia) View.VISIBLE else View.GONE
+
+                    adView.setNativeAd(ad)
+                    adView.visibility = View.VISIBLE
+                    onAdLoaded()
                 }
             )
         }

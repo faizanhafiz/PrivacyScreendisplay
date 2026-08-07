@@ -38,7 +38,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import com.app.privacyscreendisplay.core.ads.AdMobBottomSheetAdDialog
+import com.app.privacyscreendisplay.core.ads.ui.AdMobBottomSheetAdDialog
+import com.app.privacyscreendisplay.core.ads.config.AdConfig
+import com.app.privacyscreendisplay.core.ads.engine.AdPreloader
 import com.app.privacyscreendisplay.core.ui.components.FullProtectionOverlay
 import com.app.privacyscreendisplay.core.ui.components.LocalToastState
 import com.app.privacyscreendisplay.core.ui.components.ToastType
@@ -56,6 +58,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.app.privacyscreendisplay.home.domain.model.OverlayStyle
 import com.app.privacyscreendisplay.home.domain.model.SensitivityLevel
 import com.app.privacyscreendisplay.home.presentation.ui.components.ActivityTimelinePreviewCard
+import com.app.privacyscreendisplay.home.presentation.ui.components.AdBannerCard
 import com.app.privacyscreendisplay.home.presentation.ui.components.OverlayStyleSelector
 import com.app.privacyscreendisplay.home.presentation.ui.components.ProtectionStatusCard
 import com.app.privacyscreendisplay.home.presentation.ui.components.QuickSettingCard
@@ -156,11 +159,17 @@ fun HomeScreenContent(
 
     // Sync global AdConfig premium flag
     LaunchedEffect(status.isPremiumSubscriber) {
-        com.app.privacyscreendisplay.core.ads.AdConfig.isPremiumUser = status.isPremiumSubscriber
+        AdConfig.isPremiumUser = status.isPremiumSubscriber
     }
 
-    // Trigger Bottom Sheet Modal Dialog Ad ONLY on initial app launch if NOT premium
+    val context = LocalContext.current
+
+    // Initialize and pre-load all ad formats using Activity context
     LaunchedEffect(Unit) {
+        if (!status.isPremiumSubscriber) {
+            AdPreloader.startPreloading(context)
+        }
+
         if (!status.isPremiumSubscriber && shouldShowLaunchAd()) {
             kotlinx.coroutines.delay(5000L) // 5-second delay to prevent overlap with App Open Ad
             if (!status.isPremiumSubscriber) {
@@ -173,7 +182,7 @@ fun HomeScreenContent(
         Surface(
             modifier = Modifier
                 .fillMaxSize()
-                .blur(if (showProtectionOverlay) 25.dp else 0.dp)
+                .then(if (showProtectionOverlay) Modifier.blur(25.dp) else Modifier)
                 .statusBarsPadding()
                 .navigationBarsPadding(),
             color = MaterialTheme.colorScheme.background
@@ -260,9 +269,9 @@ fun HomeScreenContent(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Inline Ad Placement right after Protected Apps card
+                // Inline Banner Ad Placement
                 if (!status.isPremiumSubscriber) {
-                    com.app.privacyscreendisplay.home.presentation.ui.components.AdBannerCard(
+                    AdBannerCard(
                         onAdClick = onPremiumClick
                     )
 

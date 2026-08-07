@@ -49,8 +49,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.app.privacyscreendisplay.core.ads.AdConfig
-import com.app.privacyscreendisplay.core.ads.RewardedAdManager
+import com.app.privacyscreendisplay.core.ads.config.AdConfig
+import com.app.privacyscreendisplay.core.ads.rewarded.RewardedAdManager
 import com.app.privacyscreendisplay.core.ui.components.LocalToastState
 import com.app.privacyscreendisplay.core.ui.components.ToastType
 import com.app.privacyscreendisplay.home.data.datasource.PrivacyGuardLocalDataSource
@@ -75,7 +75,7 @@ fun PremiumPaywallScreen(
 
     // Preload Rewarded Ad on Screen Launch
     LaunchedEffect(Unit) {
-        RewardedAdManager.loadAd(context)
+        RewardedAdManager.preload(context)
     }
 
     Surface(
@@ -221,7 +221,7 @@ fun PremiumPaywallScreen(
                 // Watch Ad Button
                 Button(
                     onClick = {
-                        RewardedAdManager.showAdWithLoading(
+                        RewardedAdManager.showAdWithTimeout(
                             context = context,
                             onLoadingStateChanged = { isAdLoading = it },
                             onUserEarnedReward = {

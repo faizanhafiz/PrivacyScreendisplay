@@ -1,5 +1,6 @@
-package com.app.privacyscreendisplay.core.ads
+package com.app.privacyscreendisplay.core.ads.ui
 
+import android.util.Log
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.Button
@@ -41,6 +42,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.app.privacyscreendisplay.core.ads.AdManager
+import com.app.privacyscreendisplay.core.ads.config.AdConfig
 import com.google.android.gms.ads.AdListener
 import com.google.android.gms.ads.AdLoader
 import com.google.android.gms.ads.LoadAdError
@@ -50,13 +53,13 @@ import com.google.android.gms.ads.nativead.NativeAdView
 
 /**
  * High-Converting Interactive Bottom-Sheet Modal Ad Dialog for Home Screen.
- * NOTE: Displays ONLY when the Native Ad has loaded successfully; otherwise remains hidden.
+ * Uses independent Activity-scoped AdLoader for maximum fill reliability.
  */
 @Composable
 fun AdMobBottomSheetAdDialog(
     isVisible: Boolean,
     onDismiss: () -> Unit,
-    adUnitId: String = AdConfig.nativeAdUnitId,
+    adUnitId: String = AdConfig.NATIVE_AD_UNIT_ID,
     onAdClick: () -> Unit = {}
 ) {
     if (!isVisible || AdConfig.isPremiumUser) return
@@ -74,8 +77,9 @@ fun AdMobBottomSheetAdDialog(
             .withAdListener(object : AdListener() {
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     super.onAdFailedToLoad(error)
+                    Log.e("AdMobBottomSheetAd", "Bottom Sheet Native Ad failed to load: code=${error.code}, msg=${error.message}")
                     isAdLoadedSuccessfully = false
-                    onDismiss() // Dismiss dialog if ad fails to load - DO NOT show empty dialog
+                    onDismiss()
                 }
             })
             .build()
@@ -88,9 +92,8 @@ fun AdMobBottomSheetAdDialog(
         }
     }
 
-    // ONLY SHOW DIALOG IF AD LOADED SUCCESSFULLY!
-    val activeAd = nativeAdState
-    if (!isAdLoadedSuccessfully || activeAd == null) return
+    val ad = nativeAdState
+    if (!isAdLoadedSuccessfully || ad == null) return
 
     Box(
         modifier = Modifier
@@ -119,7 +122,6 @@ fun AdMobBottomSheetAdDialog(
                         .padding(top = 12.dp, start = 20.dp, end = 20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Top Drag Handle & Close Button Header
                     Box(
                         modifier = Modifier.fillMaxWidth(),
                         contentAlignment = Alignment.Center
@@ -135,26 +137,25 @@ fun AdMobBottomSheetAdDialog(
                             Spacer(modifier = Modifier.height(4.dp))
 
                             Text(
-                                text = "Swipe down to close",
+                                text = "SPONSORED PROMOTION",
                                 fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
                                 color = Color(0xFF64748B),
-                                fontWeight = FontWeight.Medium
+                                letterSpacing = 1.2.sp
                             )
                         }
 
-                        // Top-Right Close 'X' Button
                         IconButton(
                             onClick = onDismiss,
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
-                                .size(34.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF64748B).copy(alpha = 0.3f))
+                                .size(32.dp)
+                                .background(Color.Black.copy(alpha = 0.06f), CircleShape)
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.Close,
                                 contentDescription = "Close Ad",
-                                tint = Color.White,
+                                tint = Color(0xFF475569),
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -162,7 +163,6 @@ fun AdMobBottomSheetAdDialog(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Live Pre-Loaded AdMob Native Advanced View
                     AndroidView(
                         modifier = Modifier.fillMaxWidth(),
                         factory = { ctx ->
@@ -177,7 +177,7 @@ fun AdMobBottomSheetAdDialog(
                                 setTypeface(null, android.graphics.Typeface.BOLD)
                                 setTextColor(android.graphics.Color.parseColor("#1E293B"))
                                 gravity = Gravity.CENTER
-                                text = activeAd.headline
+                                text = ad.headline
                             }
 
                             val bodyView = TextView(ctx).apply {
@@ -185,7 +185,7 @@ fun AdMobBottomSheetAdDialog(
                                 setTextColor(android.graphics.Color.parseColor("#475569"))
                                 gravity = Gravity.CENTER
                                 setPadding(0, 6, 0, 14)
-                                text = activeAd.body ?: "Exclusive feature offer"
+                                text = ad.body ?: "Exclusive feature offer"
                             }
 
                             val density = ctx.resources.displayMetrics.density
@@ -210,7 +210,7 @@ fun AdMobBottomSheetAdDialog(
                                     ViewGroup.LayoutParams.MATCH_PARENT,
                                     ctaHeightPx
                                 )
-                                text = (activeAd.callToAction ?: "INSTALL").uppercase()
+                                text = (ad.callToAction ?: "INSTALL").uppercase()
                             }
 
                             container.addView(headlineView)
@@ -225,7 +225,7 @@ fun AdMobBottomSheetAdDialog(
                             adView.mediaView = mediaView
                             adView.callToActionView = ctaButton
 
-                            adView.setNativeAd(activeAd)
+                            adView.setNativeAd(ad)
                             adView
                         }
                     )

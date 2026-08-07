@@ -11,7 +11,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.app.privacyscreendisplay.activitylog.data.datasource.ActivityLogLocalDataSource
 import com.app.privacyscreendisplay.activitylog.domain.model.ActivityLogItem
-import com.app.privacyscreendisplay.core.ads.AdConfig
+import com.app.privacyscreendisplay.core.ads.config.AdConfig
 import com.app.privacyscreendisplay.home.domain.model.OverlayStyle
 import com.app.privacyscreendisplay.home.domain.model.ProtectionStatus
 import com.app.privacyscreendisplay.home.domain.model.SensitivityLevel

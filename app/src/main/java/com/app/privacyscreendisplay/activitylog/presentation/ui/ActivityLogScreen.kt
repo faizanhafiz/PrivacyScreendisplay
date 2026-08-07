@@ -78,8 +78,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.app.privacyscreendisplay.activitylog.domain.model.ActivityLogItem
 import com.app.privacyscreendisplay.activitylog.presentation.viewmodel.ActivityLogUiState
 import com.app.privacyscreendisplay.activitylog.presentation.viewmodel.ActivityLogViewModel
-import com.app.privacyscreendisplay.core.ads.InterstitialAdManager
-import com.app.privacyscreendisplay.core.ads.RewardedAdManager
+import com.app.privacyscreendisplay.core.ads.interstitial.InterstitialAdManager
+import com.app.privacyscreendisplay.core.ads.rewarded.RewardedAdManager
 import com.app.privacyscreendisplay.home.presentation.ui.components.AdBannerCard
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -125,6 +125,14 @@ fun ActivityLogContent(
     var isAdLoading by remember { mutableStateOf(false) }
     var selectedLockedItem by remember { mutableStateOf<ActivityLogItem?>(null) }
     var selectedExpandedItem by remember { mutableStateOf<ActivityLogItem?>(null) }
+
+    // Pre-load Interstitial, Rewarded, and Native Ads on screen enter
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        if (!uiState.isPremiumUser) {
+            InterstitialAdManager.preload(context)
+            RewardedAdManager.preload(context)
+        }
+    }
 
     Surface(
         modifier = modifier
@@ -402,7 +410,7 @@ fun ActivityLogContent(
                         selectedItemIds = emptySet()
 
                         if (!uiState.isPremiumUser) {
-                            InterstitialAdManager.showAdWithLoading(
+                            InterstitialAdManager.showAdWithTimeout(
                                 context = context,
                                 onLoadingStateChanged = { isAdLoading = it },
                                 onAdDismissed = {
@@ -535,7 +543,7 @@ fun ActivityLogContent(
                         onClick = {
                             val targetId = item.id
                             selectedLockedItem = null
-                            RewardedAdManager.showAdWithLoading(
+                            RewardedAdManager.showAdWithTimeout(
                                 context = context,
                                 onLoadingStateChanged = { isAdLoading = it },
                                 onUserEarnedReward = {

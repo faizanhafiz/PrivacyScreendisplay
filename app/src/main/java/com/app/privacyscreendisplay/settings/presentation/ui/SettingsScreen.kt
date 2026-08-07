@@ -63,8 +63,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import com.app.privacyscreendisplay.core.ads.AdConfig
-import com.app.privacyscreendisplay.core.ads.AdMobBannerView
+import com.app.privacyscreendisplay.core.ads.config.AdConfig
+import com.app.privacyscreendisplay.core.ads.ui.AdMobBannerView
 import com.app.privacyscreendisplay.core.monitor.ForegroundAppMonitor
 import com.app.privacyscreendisplay.core.ui.components.LocalToastState
 import com.app.privacyscreendisplay.core.ui.components.ToastType

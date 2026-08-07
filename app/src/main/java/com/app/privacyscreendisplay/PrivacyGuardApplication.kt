@@ -2,7 +2,8 @@ package com.app.privacyscreendisplay
 
 import android.app.Application
 import com.app.privacyscreendisplay.core.ads.AdManager
-import com.app.privacyscreendisplay.core.ads.AppOpenAdManager
+import com.app.privacyscreendisplay.core.ads.appopen.AppOpenAdManager
+import com.app.privacyscreendisplay.core.ads.config.AdConfig
 
 /**
  * Base Application class managing global SDK initializations including
@@ -20,11 +21,9 @@ class PrivacyGuardApplication : Application() {
         appOpenAdManager = AppOpenAdManager(this)
 
         // Initialize Google Mobile Ads & Meta Mediation SDK
-        com.app.privacyscreendisplay.core.ads.AdManager.initialize(this) {
-            if (!com.app.privacyscreendisplay.core.ads.AdConfig.isPremiumUser) {
+        AdManager.initialize(this, appOpenAdManager) {
+            if (!AdConfig.isPremiumUser) {
                 appOpenAdManager.fetchAd(showOnLoad = false)
-                com.app.privacyscreendisplay.core.ads.CentralizedNativeAdManager.initialize(this)
-                com.app.privacyscreendisplay.core.ads.CentralizedBannerAdManager.initialize(this)
             }
         }
     }

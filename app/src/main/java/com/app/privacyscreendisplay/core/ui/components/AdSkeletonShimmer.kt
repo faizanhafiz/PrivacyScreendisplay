@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 
 /**
  * Animated Shimmer Wave Skeleton Loader for Ad Units while ad content is loading.
+ * Sized to fit 60.dp fixed banner height to prevent UI layout shifts/shaking.
  */
 @Composable
 fun AdSkeletonShimmer(
@@ -60,50 +61,50 @@ fun AdSkeletonShimmer(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(14.dp))
             .background(Color(0xFFF8FAFC))
-            .padding(14.dp)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             // Skeleton Icon Box
             Box(
                 modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(10.dp))
                     .background(brush)
             )
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(10.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 // Skeleton Title Bar
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth(0.7f)
-                        .height(14.dp)
+                        .fillMaxWidth(0.6f)
+                        .height(12.dp)
                         .clip(RoundedCornerShape(4.dp))
                         .background(brush)
                 )
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
                 // Skeleton Subtitle Bar
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth(0.9f)
-                        .height(12.dp)
+                        .fillMaxWidth(0.85f)
+                        .height(10.dp)
                         .clip(RoundedCornerShape(4.dp))
                         .background(brush)
                 )
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(10.dp))
 
             // Skeleton CTA Button
             Box(
                 modifier = Modifier
-                    .size(width = 64.dp, height = 32.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .size(width = 56.dp, height = 28.dp)
+                    .clip(RoundedCornerShape(8.dp))
                     .background(brush)
             )
         }

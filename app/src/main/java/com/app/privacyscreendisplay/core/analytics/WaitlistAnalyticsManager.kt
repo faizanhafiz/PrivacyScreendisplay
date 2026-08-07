@@ -3,7 +3,7 @@ package com.app.privacyscreendisplay.core.analytics
 import android.content.Context
 import android.os.Build
 import android.util.Log
-import com.app.privacyscreendisplay.core.ads.AdConfig
+import com.app.privacyscreendisplay.core.ads.config.AdConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

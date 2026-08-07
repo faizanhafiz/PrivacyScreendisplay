@@ -11,7 +11,7 @@ package com.app.privacyscreendisplay.home.domain.model
  * @property isPremiumSubscriber Indicates whether user holds an active Premium Google Play subscription.
  */
 data class ProtectionStatus(
-    val isProtectionActive: Boolean = false,
+    val isProtectionActive: Boolean = true,
     val selectedOverlayStyle: OverlayStyle = OverlayStyle.BLUR,
     val sensitivity: SensitivityLevel = SensitivityLevel.MEDIUM,
     val protectedAppsCount: Int = 12,

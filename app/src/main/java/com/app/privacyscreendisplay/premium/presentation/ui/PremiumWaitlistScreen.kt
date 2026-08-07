@@ -58,7 +58,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.app.privacyscreendisplay.core.ads.RewardedAdManager
+import com.app.privacyscreendisplay.core.ads.rewarded.RewardedAdManager
 import com.app.privacyscreendisplay.core.ui.components.AdLoadingOverlay
 import com.app.privacyscreendisplay.core.ui.components.LocalToastState
 import com.app.privacyscreendisplay.core.ui.components.ToastType
@@ -88,7 +88,7 @@ fun PremiumWaitlistScreen(
     var isEditingEmail by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        RewardedAdManager.loadAd(context)
+        RewardedAdManager.preload(context)
     }
 
     Surface(
@@ -375,7 +375,7 @@ fun PremiumWaitlistScreen(
 
                 Button(
                     onClick = {
-                        RewardedAdManager.showAdWithLoading(
+                        RewardedAdManager.showAdWithTimeout(
                             context = context,
                             onLoadingStateChanged = { isAdLoading = it },
                             onUserEarnedReward = {
