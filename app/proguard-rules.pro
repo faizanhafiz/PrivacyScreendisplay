@@ -12,10 +12,14 @@
 #   public *;
 #}
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Preserve line number information for debugging
+-keepattributes SourceFile,LineNumberTable
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Google Mobile Ads SDK ProGuard Rules
+-keep class com.google.android.gms.ads.** { *; }
+-keep interface com.google.android.gms.ads.** { *; }
+
+# Meta (Facebook) Audience Network Mediation Adapter Rules
+-keep class com.facebook.ads.** { *; }
+-keep interface com.facebook.ads.** { *; }
+-dontwarn com.facebook.ads.**

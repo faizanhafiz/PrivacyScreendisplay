@@ -11,7 +11,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.app.privacyscreendisplay.activitylog.data.datasource.ActivityLogLocalDataSource
 import com.app.privacyscreendisplay.activitylog.domain.model.ActivityLogItem
-import com.app.privacyscreendisplay.core.ads.AdConfig
+import com.app.privacyscreendisplay.core.ads.config.AdConfig
 import com.app.privacyscreendisplay.home.domain.model.OverlayStyle
 import com.app.privacyscreendisplay.home.domain.model.ProtectionStatus
 import com.app.privacyscreendisplay.home.domain.model.SensitivityLevel
@@ -142,8 +142,8 @@ class PrivacyGuardLocalDataSource(
     }
 
     suspend fun grant24HourPremium() {
-        // Testing mode: 2 minutes duration (2 * 60 * 1000L)
-        val expirationTime = System.currentTimeMillis() + (2 * 60 * 1000L)
+        // Premium duration: 24 hours (24 * 60 * 60 * 1000L)
+        val expirationTime = System.currentTimeMillis() + (24 * 60 * 60 * 1000L)
         context.homeDataStore.edit { preferences ->
             preferences[Keys.PREMIUM_EXPIRATION] = expirationTime
         }

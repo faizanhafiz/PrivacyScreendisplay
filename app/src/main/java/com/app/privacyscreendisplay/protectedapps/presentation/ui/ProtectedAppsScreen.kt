@@ -68,6 +68,13 @@ fun ProtectedAppsScreen(
     var appPendingRemoval by remember { mutableStateOf<ProtectedApp?>(null) }
     var isAdLoading by remember { mutableStateOf(false) }
 
+    // Pre-load Interstitial Ad as soon as Protected Apps screen opens
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        if (!uiState.isPremiumUser) {
+            com.app.privacyscreendisplay.core.ads.interstitial.InterstitialAdManager.preload(context)
+        }
+    }
+
     ProtectedAppsContent(
         uiState = uiState,
         onNavigateBack = onNavigateBack,
@@ -126,8 +133,8 @@ fun ProtectedAppsScreen(
                         appPendingRemoval = null
                         viewModel.onRemoveAppClicked(pkg)
                         toastState.show("Removed $name from protected apps", ToastType.WARNING)
-                        if (!com.app.privacyscreendisplay.core.ads.AdConfig.isPremiumUser) {
-                            com.app.privacyscreendisplay.core.ads.InterstitialAdManager.showAdWithLoading(
+                        if (!com.app.privacyscreendisplay.core.ads.config.AdConfig.isPremiumUser) {
+                            com.app.privacyscreendisplay.core.ads.interstitial.InterstitialAdManager.showAdWithTimeout(
                                 context = context,
                                 onLoadingStateChanged = { isAdLoading = it },
                                 onAdDismissed = {}
@@ -158,8 +165,8 @@ fun ProtectedAppsScreen(
         onAppSelected = { app ->
             viewModel.onAddAppClicked(app)
             toastState.show("Added ${app.appName} to protected apps", ToastType.SUCCESS)
-            if (!com.app.privacyscreendisplay.core.ads.AdConfig.isPremiumUser) {
-                com.app.privacyscreendisplay.core.ads.InterstitialAdManager.showAdWithLoading(
+            if (!com.app.privacyscreendisplay.core.ads.config.AdConfig.isPremiumUser) {
+                com.app.privacyscreendisplay.core.ads.interstitial.InterstitialAdManager.showAdWithTimeout(
                     context = context,
                     onLoadingStateChanged = { isAdLoading = it },
                     onAdDismissed = {}

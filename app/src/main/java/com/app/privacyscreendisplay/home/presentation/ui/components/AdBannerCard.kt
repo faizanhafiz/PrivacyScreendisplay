@@ -2,8 +2,8 @@ package com.app.privacyscreendisplay.home.presentation.ui.components
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.app.privacyscreendisplay.core.ads.AdConfig
-import com.app.privacyscreendisplay.core.ads.AdMobBannerView
+import com.app.privacyscreendisplay.core.ads.config.AdConfig
+import com.app.privacyscreendisplay.core.ads.ui.AdMobBannerView
 
 /**
  * Banner Ad Container component.

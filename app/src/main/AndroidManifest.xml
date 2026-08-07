@@ -41,12 +41,12 @@
 
         <!-- 
             AdMob Application ID
-            Test App ID: ca-app-pub-3940256099942544~3347511713
+            Test App ID: ca-app-pub-7188839988485075~4446233778
             REPLACE WITH YOUR PRODUCTION ADMOB APP ID BEFORE PUBLISHING TO GOOGLE PLAY
         -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713" />
+            android:value="ca-app-pub-7188839988485075~4446233778" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

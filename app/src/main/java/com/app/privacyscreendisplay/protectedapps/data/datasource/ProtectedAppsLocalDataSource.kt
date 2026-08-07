@@ -92,7 +92,7 @@ class ProtectedAppsLocalDataSource(
                 }
 
                 // If premium is NOT active and apps count exceeds free limit (2), trim excess apps
-                val isPremiumActive = com.app.privacyscreendisplay.core.ads.AdConfig.isPremiumUser
+                val isPremiumActive = com.app.privacyscreendisplay.core.ads.config.AdConfig.isPremiumUser
                 val maxFreeLimit = 2
 
                 if (!isPremiumActive && validApps.size > maxFreeLimit) {

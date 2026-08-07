@@ -71,14 +71,15 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.app.privacyscreendisplay.activitylog.domain.model.ActivityLogItem
 import com.app.privacyscreendisplay.activitylog.presentation.viewmodel.ActivityLogUiState
 import com.app.privacyscreendisplay.activitylog.presentation.viewmodel.ActivityLogViewModel
-import com.app.privacyscreendisplay.core.ads.InterstitialAdManager
-import com.app.privacyscreendisplay.core.ads.RewardedAdManager
+import com.app.privacyscreendisplay.core.ads.interstitial.InterstitialAdManager
+import com.app.privacyscreendisplay.core.ads.rewarded.RewardedAdManager
 import com.app.privacyscreendisplay.home.presentation.ui.components.AdBannerCard
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -124,6 +125,14 @@ fun ActivityLogContent(
     var isAdLoading by remember { mutableStateOf(false) }
     var selectedLockedItem by remember { mutableStateOf<ActivityLogItem?>(null) }
     var selectedExpandedItem by remember { mutableStateOf<ActivityLogItem?>(null) }
+
+    // Pre-load Interstitial, Rewarded, and Native Ads on screen enter
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        if (!uiState.isPremiumUser) {
+            InterstitialAdManager.preload(context)
+            RewardedAdManager.preload(context)
+        }
+    }
 
     Surface(
         modifier = modifier
@@ -401,7 +410,7 @@ fun ActivityLogContent(
                         selectedItemIds = emptySet()
 
                         if (!uiState.isPremiumUser) {
-                            InterstitialAdManager.showAdWithLoading(
+                            InterstitialAdManager.showAdWithTimeout(
                                 context = context,
                                 onLoadingStateChanged = { isAdLoading = it },
                                 onAdDismissed = {
@@ -534,7 +543,7 @@ fun ActivityLogContent(
                         onClick = {
                             val targetId = item.id
                             selectedLockedItem = null
-                            RewardedAdManager.showAdWithLoading(
+                            RewardedAdManager.showAdWithTimeout(
                                 context = context,
                                 onLoadingStateChanged = { isAdLoading = it },
                                 onUserEarnedReward = {
@@ -858,12 +867,25 @@ private fun LogItemCard(
         Spacer(modifier = Modifier.width(14.dp))
 
         Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = item.appName,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF0F172A),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Spacer(modifier = Modifier.height(2.dp))
+
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = item.appName,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A)
+                    text = item.actionText,
+                    fontSize = 13.sp,
+                    color = Color(0xFF475569),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
 
                 Spacer(modifier = Modifier.width(6.dp))
@@ -871,17 +893,10 @@ private fun LogItemCard(
                 Text(
                     text = "• ${item.formattedTime}",
                     fontSize = 12.sp,
-                    color = Color(0xFF64748B)
+                    color = Color(0xFF64748B),
+                    maxLines = 1
                 )
             }
-
-            Spacer(modifier = Modifier.height(2.dp))
-
-            Text(
-                text = item.actionText,
-                fontSize = 13.sp,
-                color = Color(0xFF475569)
-            )
         }
 
         Spacer(modifier = Modifier.width(8.dp))

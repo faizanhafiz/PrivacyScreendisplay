@@ -24,7 +24,7 @@ import androidx.core.content.ContextCompat
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.app.privacyscreendisplay.core.ads.AppOpenAdManager
+import com.app.privacyscreendisplay.core.ads.appopen.AppOpenAdManager
 import com.app.privacyscreendisplay.core.monitor.ForegroundAppMonitor
 import com.app.privacyscreendisplay.core.ui.components.LocalToastState
 import com.app.privacyscreendisplay.core.ui.components.ModernToastHost
