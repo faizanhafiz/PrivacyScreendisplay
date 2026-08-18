@@ -138,7 +138,7 @@ class FaceDetectorEngine(
                 .addOnSuccessListener { faces ->
                     val faceCount = faces.size
 
-                    if (faceCount >= 1) {
+                    if (faceCount >= 2) {
                         consecutiveMultipleFacesCount++
                         if (consecutiveMultipleFacesCount >= DEBOUNCE_THRESHOLD && !isCurrentlyAlerting) {
                             isCurrentlyAlerting = true

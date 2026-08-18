@@ -42,7 +42,7 @@ import kotlin.math.sqrt
  */
 class ShoulderSurfingEngine(
     private val context: Context,
-    private val minFacesToAlert: Int = 1, // Set to 2 for production shoulder surfing, 1 for single-person testing
+    private val minFacesToAlert: Int = 2, // Set to 2 for production shoulder surfing, 1 for single-person testing
     private val onShoulderSurfingDetected: (snapshotPath: String?) -> Unit = {},
     private val onShoulderSurfingCleared: () -> Unit = {}
 ) {
