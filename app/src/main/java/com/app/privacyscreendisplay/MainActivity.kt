@@ -64,8 +64,24 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            com.app.privacyscreendisplay.core.service.PrivacyGuardService.startService(applicationContext)
+            ensureServiceStartedWithNotifications()
         }
+    }
+
+    private val requestNotificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { _ ->
+        com.app.privacyscreendisplay.core.service.PrivacyGuardService.startService(applicationContext)
+    }
+
+    private fun ensureServiceStartedWithNotifications() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                return
+            }
+        }
+        com.app.privacyscreendisplay.core.service.PrivacyGuardService.startService(applicationContext)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -272,7 +288,7 @@ class MainActivity : ComponentActivity() {
                                             val allGranted = hasCamera && hasOverlay && hasUsageAccess
 
                                             if (allGranted) {
-                                                com.app.privacyscreendisplay.core.service.PrivacyGuardService.startService(applicationContext)
+                                                ensureServiceStartedWithNotifications()
                                                 if (pendingAutoEnableProtection) {
                                                     pendingAutoEnableProtection = false
                                                     homeViewModel.enableProtection()

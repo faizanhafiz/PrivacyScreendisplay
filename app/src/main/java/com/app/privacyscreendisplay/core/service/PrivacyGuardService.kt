@@ -131,12 +131,12 @@ class PrivacyGuardService : LifecycleService() {
         )
 
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Privacy Guard is active")
-            .setContentText("Screen privacy protection monitoring active apps")
+            .setContentTitle("Shoulder Surfing Guard")
+            .setContentText("Real-time AI camera screen privacy monitoring active")
             .setSmallIcon(android.R.drawable.ic_lock_lock)
             .setOngoing(true)
             .setContentIntent(pendingIntent)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
 
         val hasCameraPermission = ContextCompat.checkSelfPermission(
@@ -171,7 +171,7 @@ class PrivacyGuardService : LifecycleService() {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "Privacy Guard Protection Service",
-                NotificationManager.IMPORTANCE_LOW
+                NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
                 description = "Notification displayed while Privacy Guard is actively protecting your screen."
             }
